@@ -141,7 +141,6 @@ void expandSeeds(tree_t* tree, uint8_t* salt, size_t repIndex, paramset_t* param
      * non-leaf nodes. */
     size_t lastNonLeaf = getParent(tree->numNodes - 1);
 
-    printf("lastNonLeaf: %ld; ", lastNonLeaf);
     for (size_t i = 0; i <= lastNonLeaf; i++) {
         if (!tree->haveNode[i]) {
             continue;
@@ -168,21 +167,12 @@ void expandSeeds(tree_t* tree, uint8_t* salt, size_t repIndex, paramset_t* param
 
 tree_t* generateSeeds(size_t nSeeds, uint8_t* rootSeed, uint8_t* salt, size_t repIndex, paramset_t* params)
 {
-    printf("CreateTree ");
-    fflush(stdout);
     tree_t* tree = createTree(nSeeds, params->seedSizeBytes);
 
-    printf("memcpy ");
-    fflush(stdout);
     memcpy(tree->nodes[0], rootSeed, params->seedSizeBytes);
     tree->haveNode[0] = 1;
-
-    printf("expandSeeds ");
-    fflush(stdout);
     expandSeeds(tree, salt, repIndex, params);
 
-    printf("Return ");
-    fflush(stdout);
     return tree;
 }
 

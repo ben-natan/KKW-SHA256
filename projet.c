@@ -13,15 +13,11 @@ int projet_sign(unsigned char witness[8])
     int numWitBytes = 8;
     int numWitBits = 8*numWitBytes;
 
-    unsigned char publicHash[64];  //512 bits
-
-
-    printf("SHA");
-    fflush(stdout);
+    unsigned char publicHash[32];  //256 bits
 
     sha256(publicHash, witness, numWitBits);
 
-    printHex("publicHash", (uint8_t*)publicHash, 512);
+    printHex("publicHash", (uint8_t*)publicHash, 32);
 
     // paramset_t* params = malloc(60);
     paramset_t* params = (paramset_t*)malloc(sizeof(paramset_t));
@@ -30,7 +26,6 @@ int projet_sign(unsigned char witness[8])
     params->numOpenedRounds = 2;
     params->numMPCParties = 16;
     params->digestSizeBytes = 32;
-
     params->andSizeBytes = 5312; // d'après calcul sur feuille 
     params->stateSizeBytes = 4;
     params->seedSizeBytes = 1;
@@ -50,7 +45,7 @@ int projet_sign(unsigned char witness[8])
     sig->challengeHash = (uint8_t*)malloc(params->digestSizeBytes);
     sig->proofs = calloc(params->numMPCRounds, sizeof(proof2_t));
 
-    printf("Signature");
+    printf("sign_picnic3: \n");
     fflush(stdout);
 
     int ret = sign_picnic3((uint32_t*)witness, (uint32_t*)publicHash, sig, params);

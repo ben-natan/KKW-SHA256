@@ -57,9 +57,6 @@ void allocateRandomTape(randomTape_t* tape, paramset_t* params)
     size_t tapeSizeBytes = getTapeSizeBytes(params);
     uint8_t* slab = calloc(1, tape->nTapes * tapeSizeBytes);
     
-    printf("nTapes: %ld", tape->nTapes);
-    fflush(stdout);
-
     for (size_t i = 0; i < tape->nTapes; i++) {
         tape->tape[i] = slab;
         slab += tapeSizeBytes;

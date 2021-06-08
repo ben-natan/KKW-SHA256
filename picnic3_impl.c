@@ -179,6 +179,12 @@ static void tapesToWords(shares_t* shares, randomTape_t* tapes)
     }
 }
 
+// static void copyShares(shares_t* dst, shares_t* src)
+// {
+//     assert(dst->numWords == src->numWords);
+//     memcpy(dst->shares, src->shares, dst->numWords * sizeof(dst->shares[0]));
+// }
+
 static void tapesToParityBits(uint32_t* output, size_t outputBitLen, randomTape_t* tapes)
 {
     for (size_t i = 0; i < outputBitLen; i++) {
@@ -510,12 +516,15 @@ static void setAuxBits(randomTape_t* tapes, uint8_t* input, paramset_t* params)
 }
 
 // picnic3-eprint.pdf page20    
-static uint8_t mpc_AND(uint8_t a, uint8_t b, uint16_t mask_a, uint16_t mask_b, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
+static uint8_t mpc_AND(uint8_t a, uint8_t b, uint16_t mask_a, uint16_t mask_b, uint16_t* mask_gamma, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
 {
     uint16_t and_helper = tapesToWord(tapes);   // The special mask value setup during preprocessing for each AND gate
-    // [s] = z^a [lamB] XOR z^b [lamA] XOR [lamA,B] XOR [lamG] 
-    uint16_t s_shares = (extend(a) & mask_b) ^ (extend(b) & mask_a) ^ and_helper ;
-    if (msgs->unopened >= 0) {
+    uint16_t output_mask = tapesToWord(tapes);
+    *mask_gamma = output_mask;
+
+    // [s] = z^a [lamB] XOR z^b [lamA] XOR [lamA,B] XOR [lamG]      
+    uint16_t s_shares = (extend(a) & mask_b) ^ (extend(b) & mask_a) ^ and_helper ^ output_mask; 
+    if (msgs->unopened >= 0) {  
         uint8_t unopenedPartyBit = getBit(msgs->msgs[msgs->unopened], msgs->pos);
         setBit((uint8_t*)&s_shares, msgs->unopened, unopenedPartyBit);
     }
@@ -534,21 +543,30 @@ static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, shares_t* state_mas
 
     for (int i = 0; i < 32; i++) {
         uint8_t a_bit = GETBIT(a, i);
-        uint16_t mask_a = state_masks->shares[i];   // à revoir
+        uint16_t mask_a = state_masks->shares[3*i];
 
         uint8_t b_bit = GETBIT(b, i);
-        uint16_t mask_b = state_masks->shares[i+1];
+        uint16_t mask_b = state_masks->shares[3*i+1];
 
         uint8_t cin = cout;
-        uint16_t mask_cin = state_masks->shares[i+2];
+        uint16_t mask_cin = state_masks->shares[3*i+2];
 
         uint8_t sum_bit = cin ^ (a_bit ^ b_bit);
+        uint16_t mask_sum = mask_cin ^ (mask_a ^ mask_b);
         SETBIT(*sum, i, sum_bit);
+        state_masks->shares[3*i] = mask_sum; // On remplace les state masks de a par ceux de sum
 
-        uint8_t ab = mpc_AND(a, b, mask_a, mask_b, tapes, msgs, params);
-        uint8_t cin_axorb = mpc_AND(cin, a^b, mask_cin, mask_a ^ mask_b, tapes, msgs, params);
+        uint16_t mask_gamma_ab; // qu'on va chercher une tape plus loin
+        uint8_t ab = mpc_AND(a, b, mask_a, mask_b, &mask_gamma_ab, tapes, msgs, params);
+
+        uint16_t mask_gamma_cin_axorb;
+        uint8_t cin_axorb = mpc_AND(cin, a^b, mask_cin, mask_a ^ mask_b, &mask_gamma_cin_axorb, tapes, msgs, params);
 
         cout = ab ^ cin_axorb;
+        if (i < 31) {
+            // Le masque du cin suivant est celui du cout juste calculé
+            state_masks->shares[3*(i+1)+2] = mask_gamma_ab ^ mask_gamma_cin_axorb;
+        }         
     }
 }
 
@@ -556,19 +574,23 @@ static void mpc_CH(uint32_t e, uint32_t f, uint32_t g, uint32_t* ch, shares_t* s
 {
     for (int i = 0; i < 32; i++) {
         uint8_t e_bit = GETBIT(e, i);
-        uint16_t mask_e = state_masks->shares[i];  // à revoir
+        uint16_t mask_e = state_masks->shares[3*i]; 
 
         uint8_t f_bit = GETBIT(f, i);
-        uint16_t mask_f = state_masks->shares[i+1];
+        uint16_t mask_f = state_masks->shares[3*i+1];
 
         uint8_t g_bit = GETBIT(g, i);
-        uint16_t mask_g = state_masks->shares[i+2];
+        uint16_t mask_g = state_masks->shares[3*i+2];
 
         uint8_t t0_bit = f_bit ^ g_bit;
-        t0_bit = mpc_AND(e_bit, t0_bit, mask_e, mask_f ^ mask_g, tapes, msgs, params);
+
+        uint16_t mask_gamma_et0;
+        t0_bit = mpc_AND(e_bit, t0_bit, mask_e, mask_f ^ mask_g, &mask_gamma_et0, tapes, msgs, params);
 
         uint8_t ch_bit = t0_bit ^ g_bit;
         SETBIT(*ch, i, ch_bit);
+        uint16_t mask_ch = mask_gamma_et0 ^ mask_g;
+        state_masks->shares[3*i] = mask_ch; // On remplace les state masks de e par ceux de ch
     }
 }
 
@@ -576,26 +598,102 @@ static void mpc_MAJ(uint32_t a, uint32_t b, uint32_t c, uint32_t* maj, shares_t*
 {
     for (int i = 0; i < 32; i++) {
         uint8_t a_bit = GETBIT(a, i);
-        uint16_t mask_a = state_masks->shares[i];   // à revoir
+        uint16_t mask_a = state_masks->shares[3*i];
 
         uint8_t b_bit = GETBIT(b, i);
-        uint16_t mask_b = state_masks->shares[i+1];
+        uint16_t mask_b = state_masks->shares[3*i+1];
 
         uint8_t c_bit = GETBIT(c, i);
-        uint16_t mask_c = state_masks->shares[i+2];
+        uint16_t mask_c = state_masks->shares[3*i+2];
 
         uint8_t t0_bit = a_bit ^ b_bit;
         uint8_t t1_bit = a_bit ^ c_bit;
-        uint8_t maj_bit = mpc_AND(t0_bit, t1_bit, mask_a ^ mask_b, mask_a ^ mask_c, tapes, msgs, params);
+
+        uint16_t mask_gamma_t0t1;
+        uint8_t maj_bit = mpc_AND(t0_bit, t1_bit, mask_a ^ mask_b, mask_a ^ mask_c, &mask_gamma_t0t1, tapes, msgs, params);
         maj_bit ^= a_bit;
 
         SETBIT(*maj, i, maj_bit);
 
+        uint16_t mask_maj = mask_a ^ mask_gamma_t0t1;
+        state_masks->shares[3*i] = mask_maj; // On remplace le state mask de a par celui de maj
+    }
+}
+
+// static void loadFirst16WMasks(shares_t* mask_shares, shares_t* key_masks)
+// {
+//     for (int i = 0; i < 16; i++) {
+//         for (int j = 0; j < 32; j++) {
+//             mask_shares->shares[32*i + j] = key_masks->shares[32*i + j];
+//         }
+//     }
+// }
+
+// static void loadS0Masks(int i, shares_t* mask_shares)
+// {
+//     int j;
+//     for (j = 0; j < 4; j++) {
+//         mask_shares->shares[64*32 + j] = mask_shares->shares[32*(i-14) - 7 + j]
+//                                     ^ mask_shares->shares[32*(i-14) - 18 + j];
+//     }
+//     for (j = 4; j < 6; j++) {
+//         mask_shares->shares[64*32 + j] = mask_shares->shares[32*(i-14) - 7 + j]
+//                                     ^ mask_shares->shares[32*(i-14) - 18 + j]
+//                                     ^ mask_shares->shares[32*(i-15) + j - 3];
+//     }
+//     for (j = 6; j < 17; j++) {
+//         mask_shares->shares[64*32 + j] = mask_shares->shares[32*(i-15) + j - 6]
+//                                     ^ mask_shares->shares[32*(i-14) - 18 + j]
+//                                     ^ mask_shares->shares[32*(i-15) + j - 3];
+//     }
+//     for (j = 17; j < 32; j++) {
+//         mask_shares->shares[64*32 + j] = mask_shares->shares[32*(i-15) + j - 6]
+//                                     ^ mask_shares->shares[32*(i-15) + j - 17]
+//                                     ^ mask_shares->shares[32*(i-15) + j - 3];
+//     }
+// }
+
+// static void loadS1Masks(int i, shares_t* mask_shares)
+// {
+//     int j; 
+//     for (j = 0; j < 11; j++) {
+//         mask_shares->shares[64*32 + j] = mask_shares->shares[32*(i-1) - 17 + j]
+//                                     ^ mask_shares->shares[32*(i-1) - 19 + j];
+//     }
+//     for (j = 11; j < 16; j++) {
+//         mask_shares->shares[64*32 + j] = mask_shares->shares[32*(i-1) - 17 + j]
+//                                     ^ mask_shares->shares[32*(i-1) - 19 + j]
+//                                     ^ mask_shares->shares[32*(i-2) + j - 10];
+//     }
+//     for (j = 16; j < 18; j++) {
+//         mask_shares->shares[64*32 + j] = mask_shares->shares[32*(i-2) + j - 16]
+//                                     ^ mask_shares->shares[32*(i-1) - 19 + j]
+//                                     ^ mask_shares->shares[32*(i-2) + j - 10];
+//     }
+//     for (j = 18; j < 32; j++) {
+//         mask_shares->shares[64*32 + j] = mask_shares->shares[32*(i-2) + j - 16]
+//                                     ^ mask_shares->shares[32*(i-1) + j - 18]
+//                                     ^ mask_shares->shares[32*(i-2) + j - 10];
+//     }
+// }
+
+// static void updateMasks(int p, shares_t* mask_shares, shares_t* tmp_share)
+// {
+//     for (int i = 0; i < 32; i++) {
+//         mask_shares->shares[32*p + i] = tmp_share->shares[i];
+//     }
+// }
+
+/* Reconstruit le mask de sum après une addition */
+static void reconstructAdditionShares(uint32_t* output, shares_t* shares)
+{
+    for (size_t i = 0; i < 32; i++) {
+        SETBIT(*output, i, (uint8_t)parity16(shares->shares[3*i]));
     }
 }
 
 
-static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares_t* tmp_shares,
+static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes,  /* shares_t* mask_shares, */
                            msgs_t* msgs, const uint32_t* publicHash, paramset_t* params)
 {
     // maskedKey := witness masquée
@@ -630,36 +728,56 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
     uint8_t x[64];
     memcpy(x, maskedKey, 64);
 
-    shares_t* additionShares = allocateShares(128); // 64 AND
-    shares_t* CHShares = allocateShares(64); // 32 AND
-    shares_t* MAJShares = allocateShares(64); // 32 AND
+    // shares_t* key_masks = allocateShares(512); // masque x  
+    // copyShares(key_masks, mask_shares);
+
+    /* mask_shares :
+            w0 à w63, s0, s1, w16_s0, w7_s1, a, b, c, d, e, f, g, h, temp1, temp2, maj, ch, h_s1, ch_k, chk_w; 
+    */
+
+    shares_t* additionShares = allocateShares(32*3);  // a, b et cin
+    shares_t* CHShares = allocateShares(32*3);
+    shares_t* MAJShares = allocateShares(32*3); 
+
 
     uint32_t w[64];
-	int i;
+    // tapesToWords(mask_shares, tapes); 
+
+    int i;
 	for (i = 0; i < 16; i++) {
 		w[i] = (x[i * 4] << 24) | (x[i * 4 + 1] << 16)
 						| (x[i * 4 + 2] << 8) | x[i * 4 + 3];
+
 	}
+
+    // loadFirst16WMasks(mask_shares, key_masks);
     
 
     uint32_t s0, s1, w16_s0, w7_s1;
 	for (i = 16; i < 64; i++) {
 		s0 = RIGHTROTATE(w[i - 15], 7) ^ RIGHTROTATE(w[i - 15], 18)
 						^ (w[i - 15] >> 3);
+        // loadS0Masks(i, mask_shares);
+
+
 		s1 = RIGHTROTATE(w[i - 2], 17) ^ RIGHTROTATE(w[i - 2], 19)
 						^ (w[i - 2] >> 10);
+        // loadS1Masks(i, mask_shares);
 
 
 
 		// w[i] = w[i - 16] + s0 + w[i - 7] + s1;
         tapesToWords(additionShares, tapes);
         mpc_ADD32(w[i-16], s0, &w16_s0, additionShares, tapes, msgs, params);
+        // updateMasks(i - 16, mask_shares, additionShares);
 
         tapesToWords(additionShares, tapes);
         mpc_ADD32(w[i-7], s1, &w7_s1, additionShares, tapes, msgs, params);
+        // updateMasks(i - 7, mask_shares, additionShares);
 
         tapesToWords(additionShares, tapes);
         mpc_ADD32(w16_s0, w7_s1, &w[i], additionShares, tapes, msgs, params);
+        // updateMasks(66, mask_shares, additionShares);  // w16_s0 en position 66
 	}
 
     uint32_t a, b, c, d, e, f, g, h, temp1, temp2, maj, ch;
@@ -719,48 +837,39 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
         mpc_ADD32(temp1, temp2, &a, additionShares, tapes, msgs, params);
     }
 
+    uint32_t out_hA[8];
+    uint32_t abcdefgh[8] = {a,b,c,d,e,f,g,h};
+    uint32_t tmp_hA = 0;
 
-    // _hA[0] = a + _hA[0];
-    tapesToWords(additionShares, tapes);
-    mpc_ADD32(a, _hA[0], &_hA[0], additionShares, tapes, msgs, params);
+    for (int j=0; j < 8; j++) {
+        tapesToWords(additionShares, tapes);
+        mpc_ADD32(abcdefgh[j], _hA[j], &_hA[j], additionShares, tapes, msgs, params);
+        reconstructAdditionShares(&tmp_hA, additionShares);
+        out_hA[j] = tmp_hA ^ _hA[j];  // démasqué
+    }
+   
 
-    // _hA[1] = b + _hA[1];
-    tapesToWords(additionShares, tapes);
-    mpc_ADD32(b, _hA[1], &_hA[1], additionShares, tapes, msgs, params);
+    //  !!! VOIR ÇA !!!
+    /* Unmask the output, and check that it's correct */
+    // if (msgs->unopened >= 0) {
+    //     /* During signature verification we have the shares of the output for
+    //      * the unopened party already in msgs, but not in mask_shares. */
+    //     for (size_t i = 0; i < params->stateSizeBits; i++) {
+    //         uint8_t share = getBit(msgs->msgs[msgs->unopened], msgs->pos + i);
+    //         setBit((uint8_t*)&additionShares->shares[i],  msgs->unopened, share);
+    //     }
+    // }
 
-    // _hA[2] = c + _hA[2];
-    tapesToWords(additionShares, tapes);
-    mpc_ADD32(c, _hA[2], &_hA[2], additionShares, tapes, msgs, params);
+    // Ouput de 256 bits : out_h0 | out_h1 | out_h2 | .. | out_h7
 
-    // _hA[3] = d + _hA[3];
-    tapesToWords(additionShares, tapes);
-    mpc_ADD32(d, _hA[3], &_hA[3], additionShares, tapes, msgs, params);
-
-    // _hA[4] = e + _hA[4];
-    tapesToWords(additionShares, tapes);
-    mpc_ADD32(e, _hA[4], &_hA[4], additionShares, tapes, msgs, params);
-
-    // _hA[5] = f + _hA[5];
-    tapesToWords(additionShares, tapes);
-    mpc_ADD32(f, _hA[5], &_hA[5], additionShares, tapes, msgs, params);
-
-    // _hA[6] = g + _hA[6];
-    tapesToWords(additionShares, tapes);
-    mpc_ADD32(g, _hA[6], &_hA[6], additionShares, tapes, msgs, params);
-
-    // _hA[7] = h + _hA[7];
-    tapesToWords(additionShares, tapes);
-    mpc_ADD32(h, _hA[7], &_hA[7], additionShares, tapes, msgs, params);
-
-
-
-    // À faire (démasquer etc)
     for (i = 0; i < 8; i++) {
-		finalHash[i * 4] = (_hA[i] >> 24);
-		finalHash[i * 4 + 1] = (_hA[i] >> 16);
-		finalHash[i * 4 + 2] = (_hA[i] >> 8);
-		finalHash[i * 4 + 3] = _hA[i];
+		finalHash[i * 4] = (out_hA[i] >> 24);
+		finalHash[i * 4 + 1] = (out_hA[i] >> 16);
+		finalHash[i * 4 + 2] = (out_hA[i] >> 8);
+		finalHash[i * 4 + 3] = out_hA[i];
 	}
+
+    printHex("Hash calculé", (uint8_t*)finalHash, 32);
 
     if (memcmp(finalHash, publicHash, params->stateSizeBytes) != 0) {
         ret = -1;
@@ -895,6 +1004,7 @@ static void reconstructShares(uint32_t* output, shares_t* shares)
     }
 }
 
+
 static uint16_t* getMissingLeavesList(uint16_t* challengeC, paramset_t* params)
 {
     size_t missingLeavesSize = params->numMPCRounds - params->numOpenedRounds;
@@ -1010,7 +1120,7 @@ int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_t* pa
             memcpy(msgs[t].msgs[unopened], sig->proofs[t].msgs, params->andSizeBytes);
             msgs[t].unopened = unopened;
 
-            int rv = simulateOnlineSHA256((uint32_t*)sig->proofs[t].input, &tapes[t], tmp_shares, &msgs[t], publicHash, params);
+            int rv = simulateOnlineSHA256((uint32_t*)sig->proofs[t].input, &tapes[t], /* tmp_shares, */ &msgs[t], publicHash, params);
             if (rv != 0) {
                 freeShares(tmp_shares);
                 ret = -1;
@@ -1073,31 +1183,11 @@ static void computeSaltAndRootSeed(uint8_t* saltAndRoot, size_t saltAndRootLengt
     HashInstance ctx;
     
     HashInit(&ctx, params, HASH_PREFIX_NONE);
-
-    printf("IIIParams: %d, %d, %d, %d", params->stateSizeBits, params->numMPCRounds, params->numMPCParties, params->digestSizeBytes);
-    fflush(stdout);
-
     HashUpdate(&ctx, (uint8_t*)witness, params->stateSizeBytes);
-    
-    printf("ZZZParams: %d, %d, %d, %d", params->stateSizeBits, params->numMPCRounds, params->numMPCParties, params->digestSizeBytes);
-    fflush(stdout);
-    
     HashUpdate(&ctx, (uint8_t*)publicHash, params->stateSizeBytes);
-    printf("AAAParams: %d, %d, %d, %d", params->stateSizeBits, params->numMPCRounds, params->numMPCParties, params->digestSizeBytes);
-    fflush(stdout);
-    
     HashUpdateIntLE(&ctx, params->stateSizeBits);
-    printf("RRRParams: %d, %d, %d, %d", params->stateSizeBits, params->numMPCRounds, params->numMPCParties, params->digestSizeBytes);
-    fflush(stdout);
-    
     HashFinal(&ctx);
-    printf("DDDParams: %d, %d, %d, %d", params->stateSizeBits, params->numMPCRounds, params->numMPCParties, params->digestSizeBytes);
-    fflush(stdout);
-    
     HashSqueeze(&ctx, saltAndRoot, saltAndRootLength);
-
-    printf("SSSSSSParams: %d, %d, %d, %d", params->stateSizeBits, params->numMPCRounds, params->numMPCParties, params->digestSizeBytes);
-    fflush(stdout);
 }
 
 
@@ -1105,7 +1195,7 @@ static void computeSaltAndRootSeed(uint8_t* saltAndRoot, size_t saltAndRootLengt
 // spec-v3.0.pdf Section 7.1
 int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, paramset_t* params)
 {
-    printf("Params: %d, %d, %d, %d", params->stateSizeBits, params->numMPCRounds, params->numMPCParties, params->digestSizeBytes);
+    printf("params: %d, %d, %d, %d \n", params->stateSizeBits, params->numMPCRounds, params->numMPCParties, params->digestSizeBytes);
     fflush(stdout);
 
     int ret = 0;
@@ -1117,34 +1207,13 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
 
     // [  2  ]
     computeSaltAndRootSeed(saltAndRoot, params->saltSizeBytes + params->seedSizeBytes, witness, publicHash, params);
-    
-    printf("Params: %d, %d, %d, %d", params->stateSizeBits, params->numMPCRounds, params->numMPCParties, params->digestSizeBytes);
-    fflush(stdout);
-    
     memcpy(sig->salt, saltAndRoot, params->saltSizeBytes);
 
-    printf("Params: %d, %d, %d, %d", params->stateSizeBits, params->numMPCRounds, params->numMPCParties, params->digestSizeBytes);
-    fflush(stdout);
-    
     // [  3  ]
     tree_t* iSeedsTree = generateSeeds(params->numMPCRounds, saltAndRoot + params->saltSizeBytes, sig->salt, 0, params);
-    
-    printf("Params: %d, %d, %d, %d", params->stateSizeBits, params->numMPCRounds, params->numMPCParties, params->digestSizeBytes);
-    fflush(stdout);
-
     uint8_t** iSeeds = getLeaves(iSeedsTree);   // 1 seed = 1 tableau de cb? uint8_t  --> Dépend de la fonction pseudo random generator
-    
-    printf("Params: %d, %d, %d, %d", params->stateSizeBits, params->numMPCRounds, params->numMPCParties, params->digestSizeBytes);
-    fflush(stdout);
-
     free(saltAndRoot);   // change params?? 
 
-    
-    printf("Params: %d, %d, %d, %d", params->stateSizeBits, params->numMPCRounds, params->numMPCParties, params->digestSizeBytes);
-    fflush(stdout);
-
-    printf("Tapes");
-    fflush(stdout);
     
     // [  1  ]
     randomTape_t* tapes = malloc(params->numMPCRounds * sizeof(randomTape_t));  // 1 `tapes` par exécution
@@ -1153,29 +1222,14 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
     // [  3  ]
     tree_t** seeds = malloc(params->numMPCRounds * sizeof(tree_t*));
 
-    printf("Seeds");
-    fflush(stdout);
-
-    printf("numMPCRounds: %d\n", params->numMPCRounds);
-    printf("Params: %d, %d, %d, %d", params->stateSizeBits, params->numMPCRounds, params->numMPCParties, params->digestSizeBytes);
-    fflush(stdout);
-    
     // [  4  ]
     for (size_t t = 0; t < params->numMPCRounds; t++) {
         // [  4.a  ]
-        printf("Before generate: %ld\n", t);
-        fflush(stdout);
-
         seeds[t] = generateSeeds(params->numMPCParties, iSeeds[t], sig->salt, t, params);   // Les seeds pour une exécution
-
-        printf("After generate: %ld\n", t);
-        fflush(stdout);
 
         // [  4.b  ]
         createRandomTapes(&tapes[t], getLeaves(seeds[t]), sig->salt, t, params);  
         // tapes[i] = KDF(seed[t][i]||sig->salt||t||i) pour 0 <= i <= N-1
-        printf("After create: %ld\n", t);
-        fflush(stdout);
     }
 
 
@@ -1183,16 +1237,10 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
     inputs_t inputs = allocateInputs(params);  //mpcInputs à récupérer pour la suite (pour la masquage du witness)
     uint8_t auxBits[MAX_AUX_BYTES] = {0,};
 
-    printf("Preprocessing");
-    fflush(stdout);
-
     // [  4.c  ]
     for (size_t t = 0; t < params->numMPCRounds; t++) {
         computeAuxTapeSHA256(&tapes[t], params);
     }
-
-    printf("Committing");
-    fflush(stdout);
 
     /* Commit to seeds and aux bits */  
     // [  4.d  ]
@@ -1202,12 +1250,9 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
             commit(C[t].hashes[j], getLeaf(seeds[t], j), NULL, sig->salt, t, j, params);
         }
         size_t last = params->numMPCParties - 1;
-        getAuxBits(auxBits, &tapes[t], params);                     // modifier (LowMC)
+        getAuxBits(auxBits, &tapes[t], params);                   
         commit(C[t].hashes[last], getLeaf(seeds[t], last), auxBits, sig->salt, t, last, params);
     }
-
-    printf("Online phase");
-    fflush(stdout);
 
     /* Simulate the online phase of the MPC */
     msgs_t* msgs = allocateMsgs(params);
@@ -1222,7 +1267,7 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
         xor_array(maskedKey, maskedKey, witness, params->stateSizeWords);
 
         // [  4.f  ]
-        int rv = simulateOnlineSHA256(maskedKey, &tapes[t], mask_shares, &msgs[t], publicHash, params);
+        int rv = simulateOnlineSHA256(maskedKey, &tapes[t], /* mask_shares, */ &msgs[t], publicHash, params);
         if (rv != 0) {
             freeShares(mask_shares);
             ret = -1;
@@ -1285,7 +1330,7 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
 
             size_t last = params->numMPCParties - 1;
             if (challengeP[P_index] != last) {
-                getAuxBits(proofs[t].aux, &tapes[t], params);                      // modifier (LowMC)
+                getAuxBits(proofs[t].aux, &tapes[t], params);
             }
 
             memcpy(proofs[t].input, inputs[t], params->stateSizeBytes);
