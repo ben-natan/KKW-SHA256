@@ -575,6 +575,13 @@ uint16_t getMask(int p, int i, shares_t* state_masks)
     return state_masks->shares[32*p + i];
 }
 
+static void getMasks(int p, uint16_t* masks, shares_t* state_masks)
+{
+    for (int i = 0; i < 32; i++) {
+        masks[i] = state_masks->shares[32*p + i];
+    }
+}
+
 static void setMask(int p, int i, uint16_t mask, shares_t* state_masks)
 {
     state_masks->shares[32*p + i] = mask;
@@ -583,7 +590,7 @@ static void setMask(int p, int i, uint16_t mask, shares_t* state_masks)
 static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, int pa, int pb, int ps, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
 {
     uint8_t cin = 0;
-    uint16_t mask_cin;  // input du circuit
+    uint16_t mask_cin = tapesToWord(tapes);
 
     for (int i = 0; i < 32; i++) {
         uint8_t a_bit = GETBIT(a, i);
@@ -598,51 +605,128 @@ static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, int pa, int pb, int
         setMask(ps, i, mask_sum, state_masks);
 
         uint16_t mask_gamma_ab;
-        uint8_t ab = mpc_AND(a, b, mask_a, mask_b, &mask_gamma_ab, tapes, msgs, params);
+        uint8_t ab = mpc_AND(a_bit, b_bit, mask_a, mask_b, &mask_gamma_ab, tapes, msgs, params);
         
         uint16_t mask_gamma_cin_axorb;
-        uint8_t cin_axorb = mpc_AND(cin, a ^ b, mask_cin, mask_a ^ mask_b, &mask_gamma_cin_axorb, tapes, msgs, params);
+        uint8_t cin_axorb = mpc_AND(cin, a_bit ^ b_bit, mask_cin, mask_a ^ mask_b, &mask_gamma_cin_axorb, tapes, msgs, params);
 
         cin = ab ^ cin_axorb;
         mask_cin = mask_gamma_ab ^ mask_gamma_cin_axorb;
     }
 }
 
-static void mpc_CH(uint32_t e, uint32_t f, uint32_t g, uint32_t* ch, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
+static void mpc_ADD32_K(uint32_t a, uint32_t b, uint32_t *sum, int pa, int ps, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
+{
+    uint8_t cin = 0;
+    uint16_t mask_cin = tapesToWord(tapes);
+
+    for (int i = 0; i < 32; i++) {
+        uint8_t a_bit = GETBIT(a, i);
+        uint16_t mask_a = getMask(pa, i, state_masks);
+
+        uint8_t b_bit = GETBIT(b, i);
+
+        uint8_t sum_bit = cin ^ (a_bit ^ b_bit);
+        uint16_t mask_sum = mask_cin ^ (mask_a ^ 0); // mask_b = 0
+        SETBIT(*sum, i, sum_bit);
+        setMask(ps, i, mask_sum, state_masks);
+
+        uint16_t mask_gamma_ab;
+        uint8_t ab = mpc_AND(a_bit, b_bit, mask_a, 0, &mask_gamma_ab, tapes, msgs, params);
+
+        uint16_t mask_gamma_cin_axorb;
+        uint8_t cin_axorb = mpc_AND(cin, a_bit ^ b_bit, mask_cin, mask_a ^ 0, &mask_gamma_cin_axorb, tapes, msgs, params);
+
+        cin = ab ^ cin_axorb;
+        mask_cin = mask_gamma_ab ^ mask_gamma_cin_axorb;
+    }
+}
+
+// static void mpc_CH(uint32_t e, uint32_t f, uint32_t g, uint32_t* ch, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
+// {
+//     for (int i = 0; i < 32; i++) {
+//         uint8_t e_bit = GETBIT(e, i);
+//         uint16_t mask_e = state_masks->shares[3*i]; 
+
+//         uint8_t f_bit = GETBIT(f, i);
+//         uint16_t mask_f = state_masks->shares[3*i+1];
+
+//         uint8_t g_bit = GETBIT(g, i);
+//         uint16_t mask_g = state_masks->shares[3*i+2];
+
+//         uint8_t t0_bit = f_bit ^ g_bit;
+
+//         uint16_t mask_gamma_et0;
+//         t0_bit = mpc_AND(e_bit, t0_bit, mask_e, mask_f ^ mask_g, &mask_gamma_et0, tapes, msgs, params);
+
+//         uint8_t ch_bit = t0_bit ^ g_bit;
+//         SETBIT(*ch, i, ch_bit);
+//         uint16_t mask_ch = mask_gamma_et0 ^ mask_g;
+//         state_masks->shares[3*i] = mask_ch; // On remplace les state masks de e par ceux de ch
+//     }
+// }
+
+static void mpc_CH(uint32_t e, uint32_t f, uint32_t g, uint32_t* ch, int pe, int pf, int pg, int pch, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
 {
     for (int i = 0; i < 32; i++) {
         uint8_t e_bit = GETBIT(e, i);
-        uint16_t mask_e = state_masks->shares[3*i]; 
+        uint16_t mask_e = getMask(pe, i, state_masks);
 
         uint8_t f_bit = GETBIT(f, i);
-        uint16_t mask_f = state_masks->shares[3*i+1];
+        uint16_t mask_f = getMask(pf, i, state_masks);
 
         uint8_t g_bit = GETBIT(g, i);
-        uint16_t mask_g = state_masks->shares[3*i+2];
+        uint16_t mask_g = getMask(pg, i, state_masks);
 
         uint8_t t0_bit = f_bit ^ g_bit;
-
+        
         uint16_t mask_gamma_et0;
         t0_bit = mpc_AND(e_bit, t0_bit, mask_e, mask_f ^ mask_g, &mask_gamma_et0, tapes, msgs, params);
 
         uint8_t ch_bit = t0_bit ^ g_bit;
         SETBIT(*ch, i, ch_bit);
         uint16_t mask_ch = mask_gamma_et0 ^ mask_g;
-        state_masks->shares[3*i] = mask_ch; // On remplace les state masks de e par ceux de ch
+        setMask(pch, i, mask_ch, state_masks);
     }
 }
 
-static void mpc_MAJ(uint32_t a, uint32_t b, uint32_t c, uint32_t* maj, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
+// static void mpc_MAJ(uint32_t a, uint32_t b, uint32_t c, uint32_t* maj, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
+// {
+//     for (int i = 0; i < 32; i++) {
+//         uint8_t a_bit = GETBIT(a, i);
+//         uint16_t mask_a = state_masks->shares[3*i];
+
+//         uint8_t b_bit = GETBIT(b, i);
+//         uint16_t mask_b = state_masks->shares[3*i+1];
+
+//         uint8_t c_bit = GETBIT(c, i);
+//         uint16_t mask_c = state_masks->shares[3*i+2];
+
+//         uint8_t t0_bit = a_bit ^ b_bit;
+//         uint8_t t1_bit = a_bit ^ c_bit;
+
+//         uint16_t mask_gamma_t0t1;
+//         uint8_t maj_bit = mpc_AND(t0_bit, t1_bit, mask_a ^ mask_b, mask_a ^ mask_c, &mask_gamma_t0t1, tapes, msgs, params);
+//         maj_bit ^= a_bit;
+
+//         SETBIT(*maj, i, maj_bit);
+
+//         uint16_t mask_maj = mask_a ^ mask_gamma_t0t1;
+//         state_masks->shares[3*i] = mask_maj; // On remplace le state mask de a par celui de maj
+//     }
+// }
+
+static void mpc_MAJ(uint32_t a, uint32_t b, uint32_t c, uint32_t* maj, int pa, int pb, int pc, int pmaj, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
 {
     for (int i = 0; i < 32; i++) {
-        uint8_t a_bit = GETBIT(a, i);
-        uint16_t mask_a = state_masks->shares[3*i];
+        uint8_t a_bit = GETBIT(a,i);
+        uint16_t mask_a = getMask(pa, i, state_masks);
 
         uint8_t b_bit = GETBIT(b, i);
-        uint16_t mask_b = state_masks->shares[3*i+1];
+        uint16_t mask_b = getMask(pb, i, state_masks);
 
         uint8_t c_bit = GETBIT(c, i);
-        uint16_t mask_c = state_masks->shares[3*i+2];
+        uint16_t mask_c = getMask(pc, i, state_masks);
 
         uint8_t t0_bit = a_bit ^ b_bit;
         uint8_t t1_bit = a_bit ^ c_bit;
@@ -650,22 +734,21 @@ static void mpc_MAJ(uint32_t a, uint32_t b, uint32_t c, uint32_t* maj, shares_t*
         uint16_t mask_gamma_t0t1;
         uint8_t maj_bit = mpc_AND(t0_bit, t1_bit, mask_a ^ mask_b, mask_a ^ mask_c, &mask_gamma_t0t1, tapes, msgs, params);
         maj_bit ^= a_bit;
+        uint8_t mask_maj = mask_gamma_t0t1 ^ mask_a;
 
         SETBIT(*maj, i, maj_bit);
-
-        uint16_t mask_maj = mask_a ^ mask_gamma_t0t1;
-        state_masks->shares[3*i] = mask_maj; // On remplace le state mask de a par celui de maj
+        setMask(pmaj, i, mask_maj, state_masks);
     }
 }
 
-static void loadFirst16WMasks(shares_t* mask_shares, shares_t* key_masks)
-{
-    for (int i = 0; i < 16; i++) {
-        for (int j = 0; j < 32; j++) {
-            mask_shares->shares[32*i + j] = key_masks->shares[32*i + j];
-        }
-    }
-}
+// static void loadFirst16WMasks(shares_t* mask_shares, shares_t* key_masks)
+// {
+//     for (int i = 0; i < 16; i++) {
+//         for (int j = 0; j < 32; j++) {
+//             mask_shares->shares[32*i + j] = key_masks->shares[32*i + j];
+//         }
+//     }
+// }
 
 static void loadS0Masks(int i, shares_t* mask_shares)
 {
@@ -695,51 +778,95 @@ static void loadS1Masks(int i, shares_t* mask_shares)
 {
     int j; 
     for (j = 0; j < 11; j++) {
-        mask_shares->shares[64*32 + j] = mask_shares->shares[32*(i-1) - 17 + j]
+        mask_shares->shares[65*32 + j] = mask_shares->shares[32*(i-1) - 17 + j]
                                     ^ mask_shares->shares[32*(i-1) - 19 + j];
     }
     for (j = 11; j < 16; j++) {
-        mask_shares->shares[64*32 + j] = mask_shares->shares[32*(i-1) - 17 + j]
+        mask_shares->shares[65*32 + j] = mask_shares->shares[32*(i-1) - 17 + j]
                                     ^ mask_shares->shares[32*(i-1) - 19 + j]
                                     ^ mask_shares->shares[32*(i-2) + j - 10];
     }
     for (j = 16; j < 18; j++) {
-        mask_shares->shares[64*32 + j] = mask_shares->shares[32*(i-2) + j - 16]
+        mask_shares->shares[65*32 + j] = mask_shares->shares[32*(i-2) + j - 16]
                                     ^ mask_shares->shares[32*(i-1) - 19 + j]
                                     ^ mask_shares->shares[32*(i-2) + j - 10];
     }
     for (j = 18; j < 32; j++) {
-        mask_shares->shares[64*32 + j] = mask_shares->shares[32*(i-2) + j - 16]
+        mask_shares->shares[65*32 + j] = mask_shares->shares[32*(i-2) + j - 16]
                                     ^ mask_shares->shares[32*(i-1) + j - 18]
                                     ^ mask_shares->shares[32*(i-2) + j - 10];
     }
 }
 
-static void updateADD32Masks(int p, shares_t* mask_shares, shares_t* additionShares)
+static void loadS1Masks2(shares_t* mask_shares)
 {
-    for (int i = 0; i < 32; i++) {
-        mask_shares->shares[32*p + i] = additionShares->shares[3*i]; // Les shares des sums
+    int j;
+    uint16_t e_masks[32]; 
+    getMasks(72, e_masks, mask_shares);
+    for (j = 0; j < 5; j++) {
+        mask_shares->shares[65*32 + j] = e_masks[32 - 6 + j]
+                                        ^ e_masks[32 - 11 + j]
+                                        ^ e_masks[32 - 25 + j];
+    }
+    for (j = 5; j < 10; j++) {
+        mask_shares->shares[65*32 + j] = e_masks[j - 6]
+                                        ^ e_masks[32 - 11 + j]
+                                        ^ e_masks[32 - 25 + j];
+    }
+    for (j = 11; j < 24; j++) {
+        mask_shares->shares[65*32 + j] = e_masks[j - 6]
+                                        ^ e_masks[j - 11]
+                                        ^ e_masks[32 - 25 + j];
+    }
+    for (j = 24; j < 32; j++) {
+        mask_shares->shares[65*32 + j] = e_masks[j - 6]
+                                        ^ e_masks[j - 11]
+                                        ^ e_masks[j - 25];
     }
 }
 
-/* Reconstruit le mask de sum après une addition */
-static void reconstructAdditionShares(uint32_t* output, shares_t* shares)
+static void loadS0Masks2(shares_t* mask_shares)
 {
-    for (size_t i = 0; i < 32; i++) {
-        SETBIT(*output, i, (uint8_t)parity16(shares->shares[3*i]));
+    int j;
+    uint16_t a_masks[32];
+    getMasks(68, a_masks, mask_shares);
+    for (j = 0; j < 1; j++) {
+        mask_shares->shares[65*32 + j] = a_masks[32 - 2 + j]
+                                        ^ a_masks[32 - 13 + j]
+                                        ^ a_masks[32 - 22 + j];
     }
+    for (j = 1; j < 12; j++) {
+        mask_shares->shares[65*32 + j] = a_masks[j - 2]
+                                        ^ a_masks[32 - 13 + j]
+                                        ^ a_masks[32 - 22 + j];
+    }
+    for (j = 12; j < 21; j++) {
+        mask_shares->shares[65*32 + j] = a_masks[j - 2]
+                                        ^ a_masks[j - 13]
+                                        ^ a_masks[32 - 22 + j];
+    }
+    for (j = 21; j < 32; j++) {
+        mask_shares->shares[65*32 + j] = a_masks[j - 2]
+                                        ^ a_masks[j - 13]
+                                        ^ a_masks[j - 22];
+    }
+}
+
+uint32_t reconstructWordMask(int p, shares_t* state_masks)
+{
+    uint32_t res;
+    uint16_t masks[32];
+    getMasks(p, masks, state_masks);
+    for (int i = 0; i < 32; i++) {
+        SETBIT(res, i, (uint8_t)parity16(masks[i]));
+    }
+    return res;
 }
 
 
 static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes,  shares_t* state_masks, 
                            msgs_t* msgs, const uint32_t* publicHash, paramset_t* params)
 {
-    // maskedKey := witness masquée
-    // state := shares   ->    Le sharing du state se fait à l'interieur des fonctions mpc_*
-    // tmp_shares := les lambdas
-    // tapes := contient les tmp_shares     ->      sont "dézippées"
-    // msgs := historique des échanges MPC
-
 
     // 16 parties
     int ret = 0;
@@ -766,19 +893,14 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes,  share
     uint8_t x[64];
     memcpy(x, maskedKey, 64);
 
-    shares_t* key_masks = allocateShares(512); // masque x   // CHANTIER : PAS BONNES TAILLES: Key_masks de taille 512, state_masks de taille 82*32 (bits)
-    copyShares(key_masks, state_masks);
+    // Ici, on a déjà tapesToWords dans state_masks donc les masques initiaux sont chargés, et on a encore de la tape à parcourir pour les portes AND
+    // les state_masks de x sont dans w0 à w15
 
     /* state_masks :
             w0 à w63, s0, s1, w16_s0, w7_s1, a, b, c, d, e, f, g, h, temp1, temp2, maj, ch, h_s1, ch_k, chk_w; 
     */
 
-    shares_t* CHShares = allocateShares(32*3);
-    shares_t* MAJShares = allocateShares(32*3); 
-
-
     uint32_t w[64];
-    tapesToWords(state_masks, tapes); 
 
     int i;
 	for (i = 0; i < 16; i++) {
@@ -786,9 +908,6 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes,  share
 						| (x[i * 4 + 2] << 8) | x[i * 4 + 3];
 
 	}
-
-    loadFirst16WMasks(state_masks, key_masks);
-    
 
     uint32_t s0, s1, w16_s0, w7_s1;
 	for (i = 16; i < 64; i++) {
@@ -826,15 +945,15 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes,  share
     uint32_t h_s1, ch_k, chk_w;
     for (i = 0; i < 64; i++) {
         // temp1 = h + sig1(e) + ch(e,f,g) + k[i] + w[i]
-        s1 = RIGHTROTATE(e,6) ^ RIGHTROTATE(e, 11) ^ RIGHTROTATE(e, 25);   // CHANTIER
+        s1 = RIGHTROTATE(e,6) ^ RIGHTROTATE(e, 11) ^ RIGHTROTATE(e, 25);  
+        loadS1Masks2(state_masks);
 
-        tapesToWords(CHShares, tapes);    // réécrire proprement
-        mpc_CH(e, f, g, &ch, CHShares, tapes, msgs, params);               // CHANTIER
+        mpc_CH(e, f, g, &ch, 72, 73, 74, 79, state_masks, tapes, msgs, params);
 
         // temp1 = h + s1 + ch + k[i] + w[i];
         mpc_ADD32(h, s1, &h_s1, 75, 65, 80, state_masks, tapes, msgs, params);
 
-        mpc_ADD32(ch, k[i], &ch_k, 79, , state_masks, tapes, msgs, params);  // CHANTIER : ADDITION AVEC K: FAIRE UN mpc_ADD32K
+        mpc_ADD32_K(ch, k[i], &ch_k, 79, 81, state_masks, tapes, msgs, params); 
 
         mpc_ADD32(ch_k, w[i], &chk_w, 81, i, 82, state_masks, tapes, msgs, params);
 
@@ -842,10 +961,10 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes,  share
 
 
         // temp2 = sig0(a) + maj(a,b,c)
-		s0 = RIGHTROTATE(a,2) ^ RIGHTROTATE(a, 13) ^ RIGHTROTATE(a, 22);   // CHANTIER
+		s0 = RIGHTROTATE(a,2) ^ RIGHTROTATE(a, 13) ^ RIGHTROTATE(a, 22);
+        loadS0Masks2(state_masks);
 
-        tapesToWords(MAJShares, tapes);   // réécrire proprement
-        mpc_MAJ(a, b, c, &maj, MAJShares, tapes, msgs, params);            // CHANTIER
+        mpc_MAJ(a, b, c, &maj, 68, 69, 70, 78, state_masks, tapes, msgs, params);
 
         mpc_ADD32(s0, maj, &temp2, 64, 78, 77, state_masks, tapes, msgs, params);
 
@@ -864,17 +983,24 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes,  share
         mpc_ADD32(temp1, temp2, &a, 76, 77, 68, state_masks, tapes, msgs, params);
     }
 
-    uint32_t out_hA[8];
-    uint32_t abcdefgh[8] = {a,b,c,d,e,f,g,h};
-    uint32_t tmp_hA = 0;
+    mpc_ADD32_K(a, _hA[0], &a, 68, 68, state_masks, tapes, msgs, params);
+    mpc_ADD32_K(b, _hA[1], &b, 69, 69, state_masks, tapes, msgs, params);
+    mpc_ADD32_K(c, _hA[2], &c, 70, 70, state_masks, tapes, msgs, params);
+    mpc_ADD32_K(d, _hA[3], &d, 71, 71, state_masks, tapes, msgs, params);
+    mpc_ADD32_K(e, _hA[4], &e, 72, 72, state_masks, tapes, msgs, params);
+    mpc_ADD32_K(f, _hA[5], &f, 73, 73, state_masks, tapes, msgs, params);
+    mpc_ADD32_K(g, _hA[6], &g, 74, 74, state_masks, tapes, msgs, params);
+    mpc_ADD32_K(h, _hA[7], &h, 75, 75, state_masks, tapes, msgs, params);
 
-    for (int j=0; j < 8; j++) {                                            // CHANTIER
-        tapesToWords(additionShares, tapes);
-        mpc_ADD32(abcdefgh[j], _hA[j], &_hA[j], additionShares, tapes, msgs, params);
-        reconstructAdditionShares(&tmp_hA, additionShares);
-        out_hA[j] = tmp_hA ^ _hA[j];  // démasqué
-    }
-   
+    /* Démasquage */
+    a = a ^ reconstructWordMask(68, state_masks);
+    b = b ^ reconstructWordMask(69, state_masks); 
+    c = c ^ reconstructWordMask(70, state_masks); 
+    d = d ^ reconstructWordMask(71, state_masks); 
+    e = e ^ reconstructWordMask(72, state_masks); 
+    f = f ^ reconstructWordMask(73, state_masks); 
+    g = g ^ reconstructWordMask(74, state_masks); 
+    h = h ^ reconstructWordMask(75, state_masks); 
 
     //  !!! VOIR ÇA !!!
     /* Unmask the output, and check that it's correct */
@@ -888,6 +1014,16 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes,  share
     // }
 
     // Ouput de 256 bits : out_h0 | out_h1 | out_h2 | .. | out_h7
+    uint32_t out_hA[8];
+    out_hA[0] = a;
+    out_hA[1] = b;
+    out_hA[2] = c;
+    out_hA[3] = d;
+    out_hA[4] = e;
+    out_hA[5] = f;
+    out_hA[6] = g;
+    out_hA[7] = h;
+
 
     for (i = 0; i < 8; i++) {
 		finalHash[i * 4] = (out_hA[i] >> 24);
@@ -1147,7 +1283,7 @@ int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_t* pa
             memcpy(msgs[t].msgs[unopened], sig->proofs[t].msgs, params->andSizeBytes);
             msgs[t].unopened = unopened;
 
-            int rv = simulateOnlineSHA256((uint32_t*)sig->proofs[t].input, &tapes[t], /* tmp_shares, */ &msgs[t], publicHash, params);
+            int rv = simulateOnlineSHA256((uint32_t*)sig->proofs[t].input, &tapes[t], tmp_shares, &msgs[t], publicHash, params);
             if (rv != 0) {
                 freeShares(tmp_shares);
                 ret = -1;
@@ -1283,7 +1419,7 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
 
     /* Simulate the online phase of the MPC */
     msgs_t* msgs = allocateMsgs(params);
-    shares_t* mask_shares = allocateShares(params->stateSizeBits);
+    shares_t* mask_shares = allocateShares(82 * 32);              // RENDRE PROPRE
     for (size_t t = 0; t < params->numMPCRounds; t++) {
 
         // [  4.e  ]
@@ -1294,7 +1430,7 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
         xor_array(maskedKey, maskedKey, witness, params->stateSizeWords);
 
         // [  4.f  ]
-        int rv = simulateOnlineSHA256(maskedKey, &tapes[t], /* mask_shares, */ &msgs[t], publicHash, params);
+        int rv = simulateOnlineSHA256(maskedKey, &tapes[t], mask_shares, &msgs[t], publicHash, params);
         if (rv != 0) {
             freeShares(mask_shares);
             ret = -1;
