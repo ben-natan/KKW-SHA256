@@ -28,7 +28,7 @@ void HashUpdate(HashInstance* ctx, const uint8_t* data, size_t byteLen)
     }
 }
 
-void HashInit(HashInstance* ctx, paramset_t* params, uint8_t hashPrefix)
+void HashInit(HashInstance* ctx, paramset_SHA256_t* params, uint8_t hashPrefix)
 {
     if (params->stateSizeBits == 128 || params->stateSizeBits == 129) {
         Keccak_HashInitialize_SHAKE128(ctx);    /* L1 */

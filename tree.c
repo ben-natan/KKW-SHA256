@@ -120,7 +120,7 @@ uint8_t* getLeaf(tree_t* tree, size_t leafIndex)
     return tree->nodes[firstLeaf + leafIndex];
 }
 
-void hashSeed(uint8_t* digest, const uint8_t* inputSeed, uint8_t* salt, uint8_t hashPrefix, size_t repIndex, size_t nodeIndex, paramset_t* params)
+void hashSeed(uint8_t* digest, const uint8_t* inputSeed, uint8_t* salt, uint8_t hashPrefix, size_t repIndex, size_t nodeIndex, paramset_SHA256_t* params)
 {
     HashInstance ctx;
 
@@ -133,7 +133,7 @@ void hashSeed(uint8_t* digest, const uint8_t* inputSeed, uint8_t* salt, uint8_t 
     HashSqueeze(&ctx, digest, 2 * params->seedSizeBytes);
 }
 
-void expandSeeds(tree_t* tree, uint8_t* salt, size_t repIndex, paramset_t* params)
+void expandSeeds(tree_t* tree, uint8_t* salt, size_t repIndex, paramset_SHA256_t* params)
 {
     uint8_t tmp[2*MAX_SEED_SIZE_BYTES];
 
@@ -165,7 +165,7 @@ void expandSeeds(tree_t* tree, uint8_t* salt, size_t repIndex, paramset_t* param
 
 }
 
-tree_t* generateSeeds(size_t nSeeds, uint8_t* rootSeed, uint8_t* salt, size_t repIndex, paramset_t* params)
+tree_t* generateSeeds(size_t nSeeds, uint8_t* rootSeed, uint8_t* salt, size_t repIndex, paramset_SHA256_t* params)
 {
     tree_t* tree = createTree(nSeeds, params->seedSizeBytes);
 
@@ -290,7 +290,7 @@ static size_t* getRevealedNodes(tree_t* tree, uint16_t* hideList, size_t hideLis
     return revealed;
 }
 
-size_t revealSeedsSize(size_t numNodes, uint16_t* hideList, size_t hideListSize, paramset_t* params)
+size_t revealSeedsSize(size_t numNodes, uint16_t* hideList, size_t hideListSize, paramset_SHA256_t* params)
 {
     tree_t* tree = createTree(numNodes, params->seedSizeBytes);
     size_t numNodesRevealed = 0;
@@ -301,7 +301,7 @@ size_t revealSeedsSize(size_t numNodes, uint16_t* hideList, size_t hideListSize,
     return numNodesRevealed * params->seedSizeBytes;
 }
 
-size_t revealSeeds(tree_t* tree, uint16_t* hideList, size_t hideListSize, uint8_t* output, size_t outputSize, paramset_t* params)
+size_t revealSeeds(tree_t* tree, uint16_t* hideList, size_t hideListSize, uint8_t* output, size_t outputSize, paramset_SHA256_t* params)
 {
     uint8_t* outputBase = output;
     size_t revealedSize = 0;
@@ -330,7 +330,7 @@ size_t revealSeeds(tree_t* tree, uint16_t* hideList, size_t hideListSize, uint8_
 }
 
 int reconstructSeeds(tree_t* tree, uint16_t* hideList, size_t hideListSize,
-                     uint8_t* input, size_t inputLen, uint8_t* salt, size_t repIndex, paramset_t* params)
+                     uint8_t* input, size_t inputLen, uint8_t* salt, size_t repIndex, paramset_SHA256_t* params)
 {
     int ret =  0;
 
@@ -359,7 +359,7 @@ Exit:
     return ret;
 }
 
-static void computeParentHash(tree_t* tree, size_t child, uint8_t* salt, paramset_t* params)
+static void computeParentHash(tree_t* tree, size_t child, uint8_t* salt, paramset_SHA256_t* params)
 {
     if (!exists(tree, child)) {
         return;
@@ -399,7 +399,7 @@ static void computeParentHash(tree_t* tree, size_t child, uint8_t* salt, paramse
 
 /* Create a Merkle tree by hashing up all nodes.
  * leafData must have length tree->numNodes, but some may be NULL. */
-void buildMerkleTree(tree_t* tree, uint8_t** leafData, uint8_t* salt, paramset_t* params)
+void buildMerkleTree(tree_t* tree, uint8_t** leafData, uint8_t* salt, paramset_SHA256_t* params)
 {
     size_t firstLeaf = tree->numNodes - tree->numLeaves;
 
@@ -470,7 +470,7 @@ static size_t* getRevealedMerkleNodes(tree_t* tree, uint16_t* missingLeaves,
     return revealed;
 }
 
-size_t openMerkleTreeSize(size_t numNodes, uint16_t* missingLeaves, size_t missingLeavesSize, paramset_t* params)
+size_t openMerkleTreeSize(size_t numNodes, uint16_t* missingLeaves, size_t missingLeavesSize, paramset_SHA256_t* params)
 {
 
     tree_t* tree = createTree(numNodes, params->digestSizeBytes);
@@ -547,7 +547,7 @@ Exit:
 
 /* verifyMerkleTree: verify for each leaf that is set */
 int verifyMerkleTree(tree_t* tree, /* uint16_t* missingLeaves, size_t missingLeavesSize, */
-                     uint8_t** leafData, uint8_t* salt, paramset_t* params)
+                     uint8_t** leafData, uint8_t* salt, paramset_SHA256_t* params)
 {
     size_t firstLeaf = tree->numNodes - tree->numLeaves;
 

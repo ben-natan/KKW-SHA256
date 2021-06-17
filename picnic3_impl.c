@@ -132,7 +132,7 @@ static uint16_t parity16(uint16_t x)
     return y & 1;
 }
 
-static void createRandomTapes(randomTape_t* tapes, uint8_t** seeds, uint8_t* salt, size_t t, paramset_t* params)
+static void createRandomTapes(randomTape_t* tapes, uint8_t** seeds, uint8_t* salt, size_t t, paramset_SHA256_t* params)
 {
     HashInstance ctx;
 
@@ -146,7 +146,6 @@ static void createRandomTapes(randomTape_t* tapes, uint8_t** seeds, uint8_t* sal
         HashUpdateIntLE(&ctx, t);
         HashUpdateIntLE(&ctx, i);
         HashFinal(&ctx);
-
         HashSqueeze(&ctx, tapes->tape[i], tapeSizeBytes);
     }
 }
@@ -171,7 +170,7 @@ static uint16_t tapesToWord(randomTape_t* tapes)
  * uint16_t. The return value must be freed with freeShares().
  */
 
-// Il y a |C| words  " Read n bits from each of the N tapes, packing the shares into tmp shares. "
+//" Read n bits from each of the N tapes, packing the shares into tmp shares. "
 static void tapesToWords(shares_t* shares, randomTape_t* tapes)
 {
     for (size_t w = 0; w < shares->numWords; w++) {
@@ -205,8 +204,7 @@ static uint16_t extend(uint8_t bit)
 }
 
 
-// À VÉRIFIER !!
-static uint8_t aux_mpc_AND2(uint8_t mask_a, uint8_t mask_b, randomTape_t* tapes, paramset_t* params)
+static uint8_t aux_mpc_AND2(uint8_t mask_a, uint8_t mask_b, randomTape_t* tapes, paramset_SHA256_t* params)
 {
     uint16_t fresh_output_mask = tapesToWord(tapes);
     uint16_t and_helper = tapesToWord(tapes);
@@ -220,7 +218,7 @@ static uint8_t aux_mpc_AND2(uint8_t mask_a, uint8_t mask_b, randomTape_t* tapes,
 }
 
 
-void aux_CH_mpc(uint32_t e, uint32_t f, uint32_t g, uint32_t* out, randomTape_t* tapes, paramset_t* params)
+void aux_CH_mpc(uint32_t e, uint32_t f, uint32_t g, uint32_t* out, randomTape_t* tapes, paramset_SHA256_t* params)
 {   
     uint8_t t0_bit, e_bit, f_bit, g_bit, out_bit;
     for (int i = 0; i < 32; i++) {
@@ -238,7 +236,7 @@ void aux_CH_mpc(uint32_t e, uint32_t f, uint32_t g, uint32_t* out, randomTape_t*
 
 
 // maj = (a & (b ^ c)) ^ (b & c);
-void aux_MAJ_mpc(uint32_t a, uint32_t b, uint32_t c, uint32_t* out, randomTape_t* tapes, paramset_t* params)
+void aux_MAJ_mpc(uint32_t a, uint32_t b, uint32_t c, uint32_t* out, randomTape_t* tapes, paramset_SHA256_t* params)
 {
     uint8_t t0_bit, t1_bit, a_bit, b_bit, c_bit, out_bit;
     for (int i = 0; i < 32; i++) {
@@ -254,7 +252,7 @@ void aux_MAJ_mpc(uint32_t a, uint32_t b, uint32_t c, uint32_t* out, randomTape_t
     }
 }
 
-void aux_FULLADDER_mpc(uint8_t a, uint8_t b, uint8_t cin, uint8_t* sum, uint8_t* cout, randomTape_t* tapes, paramset_t* params) 
+void aux_FULLADDER_mpc(uint8_t a, uint8_t b, uint8_t cin, uint8_t* sum, uint8_t* cout, randomTape_t* tapes, paramset_SHA256_t* params) 
 {
     *sum = cin ^ (a ^ b);
     
@@ -264,7 +262,7 @@ void aux_FULLADDER_mpc(uint8_t a, uint8_t b, uint8_t cin, uint8_t* sum, uint8_t*
     *cout = ab ^ cin_axorb;
 }
 
-uint32_t aux_ADD32_mpc(uint32_t a, uint32_t b, randomTape_t* tapes, paramset_t* params)
+uint32_t aux_ADD32_mpc(uint32_t a, uint32_t b, randomTape_t* tapes, paramset_SHA256_t* params)
 {
     uint32_t res = 0;
     uint8_t sum;
@@ -285,7 +283,7 @@ uint32_t aux_ADD32_mpc(uint32_t a, uint32_t b, randomTape_t* tapes, paramset_t* 
 
 
 // Cf. picnic3-eprint.pdf Section 5.1
-static void computeAuxTapeSHA256(randomTape_t* tapes, paramset_t* params) {
+static void computeAuxTapeSHA256(randomTape_t* tapes, uint8_t* inputs, paramset_SHA256_t* params) {
     // Récupérer les constantes de sha256
     uint32_t _hA[8] = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
 		0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
@@ -305,12 +303,11 @@ static void computeAuxTapeSHA256(randomTape_t* tapes, paramset_t* params) {
 		0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2 };
 
     uint8_t x[64];   // 512 bits
-    tapesToParityBits((uint32_t*)x, params->stateSizeBits, tapes);  //avec stateSizeBits = 512
+    tapesToParityBits((uint32_t*)x, params->inputSizeBits, tapes);  
 
-    // v3.0
-    // if (x != NULL) {
-    //     memcpy(inputs, x, params->stateSizeBytes);
-    // }
+    if (inputs != NULL) {
+        memcpy(inputs, x, params->inputSizeBits / 8);
+    }
     
 
     uint32_t w[64];
@@ -413,7 +410,7 @@ static void computeAuxTapeSHA256(randomTape_t* tapes, paramset_t* params) {
 
 
 
-static void commit(uint8_t* digest, uint8_t* seed, uint8_t* aux, uint8_t* salt, size_t t, size_t j, paramset_t* params)
+static void commit(uint8_t* digest, uint8_t* seed, uint8_t* aux, uint8_t* salt, size_t t, size_t j, paramset_SHA256_t* params)
 {
     /* Compute C[t][j];  as digest = H(seed||[aux]) aux is optional */
     HashInstance ctx;
@@ -430,7 +427,7 @@ static void commit(uint8_t* digest, uint8_t* seed, uint8_t* aux, uint8_t* salt, 
     HashSqueeze(&ctx, digest, params->digestSizeBytes);
 }
 
-static void commit_h(uint8_t* digest, commitments_t* C, paramset_t* params)
+static void commit_h(uint8_t* digest, commitments_t* C, paramset_SHA256_t* params)
 {
     HashInstance ctx;
 
@@ -443,7 +440,7 @@ static void commit_h(uint8_t* digest, commitments_t* C, paramset_t* params)
 }
 
 // Commit to the views for one parallel rep
-static void commit_v(uint8_t* digest, uint8_t* input, msgs_t* msgs, paramset_t* params)
+static void commit_v(uint8_t* digest, uint8_t* input, msgs_t* msgs, paramset_SHA256_t* params)
 {
     HashInstance ctx;
 
@@ -457,7 +454,7 @@ static void commit_v(uint8_t* digest, uint8_t* input, msgs_t* msgs, paramset_t* 
     HashSqueeze(&ctx, digest, params->digestSizeBytes);
 }
 
-static void wordToMsgs(uint16_t w, msgs_t* msgs, paramset_t* params)
+static void wordToMsgs(uint16_t w, msgs_t* msgs, paramset_SHA256_t* params)
 {
     for (size_t i = 0; i < params->numMPCParties; i++) {
         uint8_t w_i = getBit((uint8_t*)&w, i);
@@ -488,35 +485,55 @@ static int indexOf(uint16_t* list, size_t len, size_t value)
 }
 
 
-static void getAuxBits(uint8_t* output, randomTape_t* tapes, paramset_t* params)
+static void getAuxBits(uint8_t* output, randomTape_t* tapes, paramset_SHA256_t* params)
 {
+    
     size_t last = params->numMPCParties - 1;
-    size_t pos = 0;
-    size_t n = params->stateSizeBits;
+    size_t offset = params->inputSizeBits;
+    size_t pos = 0;                               // REVOIR ÇA
 
-    for(uint32_t j = 0; j < params->numRounds; j++) {
-        for(size_t i = 0; i < n; i++) {
-            setBit(output, pos++, getBit(tapes->tape[last], n + n*2*j  + i));
-        }
+    for (uint32_t j = offset; j < offset + params->andSizeBits; j+=2) {
+        setBit(output, pos++, getBit(tapes->tape[last], j));
     }
+
+
+
+    // for(uint32_t j = 0; j < params->numRounds; j++) {
+    //     for(size_t i = 0; i < n; i++) {
+    //         setBit(output, pos++, getBit(tapes->tape[last], n + n*2*j  + i));
+    //     }
+    // }
+
 }
 
 
-static void setAuxBits(randomTape_t* tapes, uint8_t* input, paramset_t* params)
+
+static void setAuxBits(randomTape_t* tapes, uint8_t* input, paramset_SHA256_t* params)
 {
     size_t last = params->numMPCParties - 1;
-    size_t pos = 0;
-    size_t n = params->stateSizeBits;
+    size_t offset = params->inputSizeBits;
+    size_t pos = 0;                              // REVOIR ÇA
 
-    for(uint32_t j = 0; j < params->numRounds; j++) {
-        for(size_t i = 0; i < n; i++) {
-            setBit(tapes->tape[last], n + n*2*j  + i, getBit(input, pos++));
-        }
+    for (uint32_t j = offset; j < offset + params->andSizeBits; j+=2) {
+        setBit(tapes->tape[last], j, getBit(input, pos++));
     }
+
+
+
+    // size_t last = params->numMPCParties - 1;
+    // size_t pos = 0;
+    // size_t n = params->stateSizeBits;
+
+    // for(uint32_t j = 0; j < params->numRounds; j++) {
+    //     for(size_t i = 0; i < n; i++) {
+    //         setBit(tapes->tape[last], n + n*2*j  + i, getBit(input, pos++));
+    //     }
+    // }
 }
+
 
 // picnic3-eprint.pdf page20    
-static uint8_t mpc_AND(uint8_t a, uint8_t b, uint16_t mask_a, uint16_t mask_b, uint16_t* mask_gamma, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
+static uint8_t mpc_AND(uint8_t a, uint8_t b, uint16_t mask_a, uint16_t mask_b, uint16_t* mask_gamma, randomTape_t* tapes, msgs_t* msgs, paramset_SHA256_t* params)
 {
     uint16_t and_helper = tapesToWord(tapes);   // The special mask value setup during preprocessing for each AND gate
     uint16_t output_mask = tapesToWord(tapes);
@@ -537,7 +554,7 @@ static uint8_t mpc_AND(uint8_t a, uint8_t b, uint16_t mask_a, uint16_t mask_b, u
 }
 
 
-// static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
+// static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_SHA256_t* params)
 // {
 //     uint8_t cout = 0; 
 
@@ -570,10 +587,16 @@ static uint8_t mpc_AND(uint8_t a, uint8_t b, uint16_t mask_a, uint16_t mask_b, u
 //     }
 // }
 
+
 uint16_t getMask(int p, int i, shares_t* state_masks) 
 {
+     if (32 * p + i >= (int)state_masks->numWords) {
+        printf( " ** [GET] %d / %ld -- pour p = %d, i = %d \n" ,32*p  + i, state_masks->numWords, p ,i);
+        fflush(stdout);
+    }
     return state_masks->shares[32*p + i];
 }
+
 
 static void getMasks(int p, uint16_t* masks, shares_t* state_masks)
 {
@@ -582,27 +605,33 @@ static void getMasks(int p, uint16_t* masks, shares_t* state_masks)
     }
 }
 
+
 static void setMask(int p, int i, uint16_t mask, shares_t* state_masks)
 {
     state_masks->shares[32*p + i] = mask;
+    if (32 * p + i >= (int)state_masks->numWords) {
+        printf( " [SET] %d / %ld -- pour p = %d, i = %d \n" ,32*p  + i, state_masks->numWords,p, i);
+        fflush(stdout);
+    }
 }
 
-static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, int pa, int pb, int ps, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
+
+static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, int pa, int pb, int ps, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_SHA256_t* params)
 {
     uint8_t cin = 0;
-    uint16_t mask_cin = tapesToWord(tapes);
+    uint16_t mask_cin = 0;
 
     for (int i = 0; i < 32; i++) {
-        uint8_t a_bit = GETBIT(a, i);
-        uint16_t mask_a = getMask(pa, i, state_masks);
+        uint8_t a_bit = GETBIT(a, 32 - i);
+        uint16_t mask_a = getMask(pa, 32 - i, state_masks);
 
-        uint8_t b_bit = GETBIT(b, i);
-        uint16_t mask_b = getMask(pb, i, state_masks);
+        uint8_t b_bit = GETBIT(b, 32 - i);
+        uint16_t mask_b = getMask(pb, 32 - i, state_masks);
 
         uint8_t sum_bit = cin ^ (a_bit ^ b_bit);
         uint16_t mask_sum = mask_cin ^ (mask_a ^ mask_b);
-        SETBIT(*sum, i, sum_bit);
-        setMask(ps, i, mask_sum, state_masks);
+        SETBIT(*sum, 32 - i, sum_bit);
+        setMask(ps, 32 - i, mask_sum, state_masks);
 
         uint16_t mask_gamma_ab;
         uint8_t ab = mpc_AND(a_bit, b_bit, mask_a, mask_b, &mask_gamma_ab, tapes, msgs, params);
@@ -615,10 +644,11 @@ static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, int pa, int pb, int
     }
 }
 
-static void mpc_ADD32_K(uint32_t a, uint32_t b, uint32_t *sum, int pa, int ps, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
+
+static void mpc_ADD32_K(uint32_t a, uint32_t b, uint32_t *sum, int pa, int ps, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_SHA256_t* params)
 {
     uint8_t cin = 0;
-    uint16_t mask_cin = tapesToWord(tapes);
+    uint16_t mask_cin = 0;
 
     for (int i = 0; i < 32; i++) {
         uint8_t a_bit = GETBIT(a, i);
@@ -642,7 +672,7 @@ static void mpc_ADD32_K(uint32_t a, uint32_t b, uint32_t *sum, int pa, int ps, s
     }
 }
 
-// static void mpc_CH(uint32_t e, uint32_t f, uint32_t g, uint32_t* ch, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
+// static void mpc_CH(uint32_t e, uint32_t f, uint32_t g, uint32_t* ch, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_SHA256_t* params)
 // {
 //     for (int i = 0; i < 32; i++) {
 //         uint8_t e_bit = GETBIT(e, i);
@@ -666,7 +696,7 @@ static void mpc_ADD32_K(uint32_t a, uint32_t b, uint32_t *sum, int pa, int ps, s
 //     }
 // }
 
-static void mpc_CH(uint32_t e, uint32_t f, uint32_t g, uint32_t* ch, int pe, int pf, int pg, int pch, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
+static void mpc_CH(uint32_t e, uint32_t f, uint32_t g, uint32_t* ch, int pe, int pf, int pg, int pch, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_SHA256_t* params)
 {
     for (int i = 0; i < 32; i++) {
         uint8_t e_bit = GETBIT(e, i);
@@ -690,7 +720,7 @@ static void mpc_CH(uint32_t e, uint32_t f, uint32_t g, uint32_t* ch, int pe, int
     }
 }
 
-// static void mpc_MAJ(uint32_t a, uint32_t b, uint32_t c, uint32_t* maj, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
+// static void mpc_MAJ(uint32_t a, uint32_t b, uint32_t c, uint32_t* maj, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_SHA256_t* params)
 // {
 //     for (int i = 0; i < 32; i++) {
 //         uint8_t a_bit = GETBIT(a, i);
@@ -716,7 +746,7 @@ static void mpc_CH(uint32_t e, uint32_t f, uint32_t g, uint32_t* ch, int pe, int
 //     }
 // }
 
-static void mpc_MAJ(uint32_t a, uint32_t b, uint32_t c, uint32_t* maj, int pa, int pb, int pc, int pmaj, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_t* params)
+static void mpc_MAJ(uint32_t a, uint32_t b, uint32_t c, uint32_t* maj, int pa, int pb, int pc, int pmaj, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_SHA256_t* params)
 {
     for (int i = 0; i < 32; i++) {
         uint8_t a_bit = GETBIT(a,i);
@@ -865,7 +895,7 @@ uint32_t reconstructWordMask(int p, shares_t* state_masks)
 
 
 static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes,  shares_t* state_masks, 
-                           msgs_t* msgs, const uint32_t* publicHash, paramset_t* params)
+                           msgs_t* msgs, const uint32_t* publicHash, paramset_SHA256_t* params)
 {
 
     // 16 parties
@@ -892,6 +922,8 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes,  share
     
     uint8_t x[64];
     memcpy(x, maskedKey, 64);
+
+    // La position des tapes est déjà avancée
 
     // Ici, on a déjà tapesToWords dans state_masks donc les masques initiaux sont chargés, et on a encore de la tape à parcourir pour les portes AND
     // les state_masks de x sont dans w0 à w15
@@ -1079,7 +1111,7 @@ static size_t appendUnique(uint16_t* list, uint16_t value, size_t position)
 }
 
 
-static void expandChallengeHash(uint8_t* challengeHash, uint16_t* challengeC, uint16_t* challengeP, paramset_t* params)
+static void expandChallengeHash(uint8_t* challengeHash, uint16_t* challengeC, uint16_t* challengeP, paramset_SHA256_t* params)
 {
     HashInstance ctx;
     // Populate C
@@ -1137,7 +1169,7 @@ static void expandChallengeHash(uint8_t* challengeHash, uint16_t* challengeC, ui
 }
 
 static void HCP(uint8_t* challengeHash, uint16_t* challengeC, uint16_t* challengeP, commitments_t* Ch,
-                uint8_t* hCv, uint8_t* salt, const uint32_t* publicHash, paramset_t* params)
+                uint8_t* hCv, uint8_t* salt, const uint32_t* publicHash, paramset_SHA256_t* params)
 {
     HashInstance ctx;
 
@@ -1168,7 +1200,7 @@ static void reconstructShares(uint32_t* output, shares_t* shares)
 }
 
 
-static uint16_t* getMissingLeavesList(uint16_t* challengeC, paramset_t* params)
+static uint16_t* getMissingLeavesList(uint16_t* challengeC, paramset_SHA256_t* params)
 {
     size_t missingLeavesSize = params->numMPCRounds - params->numOpenedRounds;
     uint16_t* missingLeaves = calloc(missingLeavesSize, sizeof(uint16_t));
@@ -1184,7 +1216,7 @@ static uint16_t* getMissingLeavesList(uint16_t* challengeC, paramset_t* params)
     return missingLeaves;
 }
 
-int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_t* params)
+int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_SHA256_t* params)
 {
     commitments_t* C = allocateCommitments(params, 0);
     commitments_t Ch = { 0 };
@@ -1236,7 +1268,7 @@ int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_t* pa
 
         if (!contains(sig->challengeC, params->numOpenedRounds, t)) {
             /* We're given iSeed, have expanded the seeds, compute aux from scratch so we can comnpte Com[t] */
-            computeAuxTapeSHA256(&tapes[t], params);
+            computeAuxTapeSHA256(&tapes[t], NULL, params);
             for (size_t j = 0; j < last; j++) {
                 commit(C[t].hashes[j], getLeaf(seeds[t], j), NULL, sig->salt, t, j, params);
             }
@@ -1341,14 +1373,14 @@ Exit:
     return ret;
 }
 
-static void computeSaltAndRootSeed(uint8_t* saltAndRoot, size_t saltAndRootLength, uint32_t* witness, uint32_t* publicHash, paramset_t* params)
+static void computeSaltAndRootSeed(uint8_t* saltAndRoot, size_t saltAndRootLength, uint32_t* witness, uint32_t* publicHash, paramset_SHA256_t* params)
 {
     HashInstance ctx;
     
     HashInit(&ctx, params, HASH_PREFIX_NONE);
-    HashUpdate(&ctx, (uint8_t*)witness, params->stateSizeBytes);
-    HashUpdate(&ctx, (uint8_t*)publicHash, params->stateSizeBytes);
-    HashUpdateIntLE(&ctx, params->stateSizeBits);
+    HashUpdate(&ctx, (uint8_t*)witness, params->inputSizeBits / 8);
+    HashUpdate(&ctx, (uint8_t*)publicHash, 32);
+    HashUpdateIntLE(&ctx, params->stateSizeBits);   // ?
     HashFinal(&ctx);
     HashSqueeze(&ctx, saltAndRoot, saltAndRootLength);
 }
@@ -1356,7 +1388,7 @@ static void computeSaltAndRootSeed(uint8_t* saltAndRoot, size_t saltAndRootLengt
 
 // PARTIE INTERESSANTE 19/05
 // spec-v3.0.pdf Section 7.1
-int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, paramset_t* params)
+int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, paramset_SHA256_t* params)
 {
     printf("params: %d, %d, %d, %d \n", params->stateSizeBits, params->numMPCRounds, params->numMPCParties, params->digestSizeBytes);
     fflush(stdout);
@@ -1374,8 +1406,8 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
 
     // [  3  ]
     tree_t* iSeedsTree = generateSeeds(params->numMPCRounds, saltAndRoot + params->saltSizeBytes, sig->salt, 0, params);
-    uint8_t** iSeeds = getLeaves(iSeedsTree);   // 1 seed = 1 tableau de cb? uint8_t  --> Dépend de la fonction pseudo random generator
-    free(saltAndRoot);   // change params?? 
+    uint8_t** iSeeds = getLeaves(iSeedsTree);  
+    free(saltAndRoot);   
 
     
     // [  1  ]
@@ -1397,15 +1429,16 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
 
 
     /* Preprocessing; compute aux tape for the N-th player, for each parallel rep */
-    inputs_t inputs = allocateInputs(params);  //mpcInputs à récupérer pour la suite (pour la masquage du witness)
+    // inputs_t inputs = allocateInputs(params);   !!!
     uint8_t auxBits[MAX_AUX_BYTES] = {0,};
 
     // [  4.c  ]
     for (size_t t = 0; t < params->numMPCRounds; t++) {
-        computeAuxTapeSHA256(&tapes[t], params);
+        // computeAuxTapeSHA256(&tapes[t], inputs[t], params);
+        computeAuxTapeSHA256(&tapes[t], NULL, params);
     }
 
-    /* Commit to seeds and aux bits */  
+    /* Commit to seeds and aux bits */ 
     // [  4.d  ]
     commitments_t* C = allocateCommitments(params, 0);
     for (size_t t = 0; t < params->numMPCRounds; t++) {
@@ -1419,25 +1452,35 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
 
     /* Simulate the online phase of the MPC */
     msgs_t* msgs = allocateMsgs(params);
-    shares_t* mask_shares = allocateShares(82 * 32);              // RENDRE PROPRE
+    shares_t* state_masks = allocateShares(params->stateSizeBits + 16);
+    shares_t* input_masks = allocateShares(params->inputSizeBits);
     for (size_t t = 0; t < params->numMPCRounds; t++) {
 
-        // [  4.e  ]
-        uint32_t* maskedKey = (uint32_t*)inputs[t];
+        uint32_t* maskedKey = malloc (16 * sizeof(uint32_t));
+        // uint32_t* maskedKey = malloc (params->inputSizeBits); 
 
-        tapesToWords(mask_shares, &tapes[t]);
-        reconstructShares(maskedKey, mask_shares);
-        xor_array(maskedKey, maskedKey, witness, params->stateSizeWords);
+        // [  4.e  ]
+        tapesToWords(input_masks, &tapes[t]);
+        reconstructShares(maskedKey, input_masks);     // maskedKey ~ 512 bits
+        xor_array(maskedKey, maskedKey, witness, 16);  // 512 / 32
 
         // [  4.f  ]
-        int rv = simulateOnlineSHA256(maskedKey, &tapes[t], mask_shares, &msgs[t], publicHash, params);
+        int rv = simulateOnlineSHA256(maskedKey, &tapes[t], state_masks, &msgs[t], publicHash, params);
         if (rv != 0) {
-            freeShares(mask_shares);
+            freeShares(state_masks);
             ret = -1;
             goto Exit;
         }
     }
-    freeShares(mask_shares);
+    // freeShares(input_masks)
+    freeShares(state_masks);
+
+
+
+
+    // INPUTS A CHANGER
+    inputs_t inputs = allocateInputs(params);
+    //   !!!!!!!!!!!
 
     /* Commit to the commitments and views */
     // [  4.g  & 4.h  ]
@@ -1526,7 +1569,7 @@ Exit:
 
 }
 
-int deserializeSignature2(signature2_t* sig, const uint8_t* sigBytes, size_t sigBytesLen, paramset_t* params)
+int deserializeSignature2(signature2_t* sig, const uint8_t* sigBytes, size_t sigBytesLen, paramset_SHA256_t* params)
 {
     /* Read the challenge and salt */
     size_t bytesRequired = params->digestSizeBytes + params->saltSizeBytes;
@@ -1596,7 +1639,7 @@ int deserializeSignature2(signature2_t* sig, const uint8_t* sigBytes, size_t sig
             if (P_t != (params->numMPCParties - 1) ) {
                 memcpy(sig->proofs[t].aux, sigBytes, params->andSizeBytes);
                 sigBytes += params->andSizeBytes;
-                if (!arePaddingBitsZero(sig->proofs[t].aux, 3 * params->numRounds * params->numSboxes)) {
+                if (!arePaddingBitsZero(sig->proofs[t].aux, 3 /* * params->numRounds * params->numSboxes */ )) {
                     return -1;
                 }
             }
@@ -1607,7 +1650,7 @@ int deserializeSignature2(signature2_t* sig, const uint8_t* sigBytes, size_t sig
             size_t msgsByteLength = params->andSizeBytes;
             memcpy(sig->proofs[t].msgs, sigBytes, msgsByteLength);
             sigBytes += msgsByteLength;
-            size_t msgsBitLength =  3 * params->numRounds * params->numSboxes;
+            size_t msgsBitLength =  3;// * params->numRounds * params->numSboxes;
             if (!arePaddingBitsZero(sig->proofs[t].msgs, msgsBitLength)) {
                 return -1;
             }
@@ -1620,7 +1663,7 @@ int deserializeSignature2(signature2_t* sig, const uint8_t* sigBytes, size_t sig
     return EXIT_SUCCESS;
 }
 
-int serializeSignature2(const signature2_t* sig, uint8_t* sigBytes, size_t sigBytesLen, paramset_t* params)
+int serializeSignature2(const signature2_t* sig, uint8_t* sigBytes, size_t sigBytesLen, paramset_SHA256_t* params)
 {
     uint8_t* sigBytesBase = sigBytes;
 

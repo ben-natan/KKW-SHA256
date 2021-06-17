@@ -8,20 +8,20 @@
 #define WORD_SIZE_BITS 32
 
 
-int projet_sign(unsigned char witness[8])
+int projet_sign(uint32_t* witness)
 {
     int numWitBytes = 8;
     int numWitBits = 8*numWitBytes;
 
     unsigned char publicHash[32];  //256 bits
 
-    sha256(publicHash, witness, numWitBits);
+    sha256(publicHash, (unsigned char*)"abcdefgh", numWitBits);
 
     printHex("publicHash", (uint8_t*)publicHash, 32);
 
     // paramset_t* params = malloc(60);
-    paramset_t* params = (paramset_t*)malloc(sizeof(paramset_t));
-    params->stateSizeBits = 32;
+    paramset_SHA256_t* params = (paramset_SHA256_t*)malloc(sizeof(paramset_SHA256_t));
+    params->stateSizeBits = 83 * 32;
     params->numMPCRounds = 3;
     params->numOpenedRounds = 2;
     params->numMPCParties = 16;
@@ -32,6 +32,9 @@ int projet_sign(unsigned char witness[8])
     params->stateSizeWords = (params->stateSizeBits + WORD_SIZE_BITS - 1)/ WORD_SIZE_BITS;
     params->transform = 255;
     params->saltSizeBytes = 32; /* same for all parameter sets */
+    params->inputSizeBits = 512;
+    params->wordSizeBits = 32;
+    params->andSizeBits = 46592;   // nombre de and gates
 
 
     signature2_t* sig = (signature2_t*)malloc(sizeof(signature2_t));
@@ -48,6 +51,6 @@ int projet_sign(unsigned char witness[8])
     printf("sign_picnic3: \n");
     fflush(stdout);
 
-    int ret = sign_picnic3((uint32_t*)witness, (uint32_t*)publicHash, sig, params);
+    int ret = sign_picnic3(witness, (uint32_t*)publicHash, sig, params);
     return ret;
 }

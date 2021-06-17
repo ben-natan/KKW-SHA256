@@ -31,7 +31,7 @@ void freeShares(shares_t* shares)
 }
 
 /* Allocate/free functions for dynamically sized types */
-void allocateView(view_t* view, paramset_t* params)
+void allocateView(view_t* view, paramset_SHA256_t* params)
 {
     view->inputShare = calloc(params->stateSizeBytes, 1);
     view->communicatedBits = calloc(params->andSizeBytes, 1);
@@ -45,12 +45,12 @@ void freeView(view_t* view)
     free(view->outputShare);
 }
 
-size_t getTapeSizeBytes(const paramset_t* params)
+size_t getTapeSizeBytes(const paramset_SHA256_t* params)
 {
-    return 2*params->andSizeBytes;
+    return (params->inputSizeBits / 8) + (2 * params->andSizeBits / 8);
 }
 
-void allocateRandomTape(randomTape_t* tape, paramset_t* params)
+void allocateRandomTape(randomTape_t* tape, paramset_SHA256_t* params)
 {
     tape->nTapes = params->numMPCParties;
     tape->tape = malloc(tape->nTapes * sizeof(uint8_t*));
@@ -64,6 +64,18 @@ void allocateRandomTape(randomTape_t* tape, paramset_t* params)
     tape->pos = 0;
 }
 
+// void allocateRandomTape2(randomTape_t* tape, paramset_SHA256_t* params)
+// {
+//     tape->nTapes = params->numMPCParties;
+//     tape->tape = malloc(tape->nTapes * sizeof(uint8_t*));
+//     size_t tapeSizeBytes = getTapeSizeBytes(params);
+
+//     for (size_t i = 0; i < tape->nTapes; i++) {
+//         tape->tape[i] = calloc(1, tapeSizeBytes);
+//     }
+//     tape->pos = 0;
+// }
+
 void freeRandomTape(randomTape_t* tape)
 {
     if (tape != NULL) {
@@ -72,7 +84,7 @@ void freeRandomTape(randomTape_t* tape)
     }
 }
 
-void allocateProof2(proof2_t* proof, paramset_t* params)
+void allocateProof2(proof2_t* proof, paramset_SHA256_t* params)
 {
     memset(proof, 0, sizeof(proof2_t));
 
@@ -93,7 +105,7 @@ void freeProof2(proof2_t* proof)
     free(proof->msgs);
 }
 
-// void allocateProof(proof_t* proof, paramset_t* params)
+// void allocateProof(proof_t* proof, paramset_SHA256_t* params)
 // {
 //     proof->seed1 = malloc(params->seedSizeBytes);
 //     proof->seed2 = malloc(params->seedSizeBytes);
@@ -118,7 +130,7 @@ void freeProof2(proof2_t* proof)
 //     free(proof->view3UnruhG);
 // }
 
-// void allocateSignature(signature_t* sig, paramset_t* params)
+// void allocateSignature(signature_t* sig, paramset_SHA256_t* params)
 // {
 //     sig->proofs = (proof_t*)malloc(params->numMPCRounds * sizeof(proof_t));
 
@@ -130,7 +142,7 @@ void freeProof2(proof2_t* proof)
 //     sig->salt = (uint8_t*)malloc(params->saltSizeBytes);
 // }
 
-// void freeSignature(signature_t* sig, paramset_t* params)
+// void freeSignature(signature_t* sig, paramset_SHA256_t* params)
 // {
 //     for (size_t i = 0; i < params->numMPCRounds; i++) {
 //         freeProof(&(sig->proofs[i]));
@@ -141,7 +153,7 @@ void freeProof2(proof2_t* proof)
 //     free(sig->salt);
 // }
 
-void allocateSignature2(signature2_t* sig, paramset_t* params)
+void allocateSignature2(signature2_t* sig, paramset_SHA256_t* params)
 {
     sig->salt = (uint8_t*)malloc(params->saltSizeBytes);
     sig->iSeedInfo = NULL;
@@ -155,7 +167,7 @@ void allocateSignature2(signature2_t* sig, paramset_t* params)
     // Individual proofs are allocated during signature generation, only for rounds when neeeded
 }
 
-void freeSignature2(signature2_t* sig, paramset_t* params)
+void freeSignature2(signature2_t* sig, paramset_SHA256_t* params)
 {
     free(sig->salt);
     free(sig->iSeedInfo);
@@ -170,7 +182,7 @@ void freeSignature2(signature2_t* sig, paramset_t* params)
 }
 
 // ATTENTION PEUT ETRE REVOIR SLAB3
-seeds_t* allocateSeeds(paramset_t* params)
+seeds_t* allocateSeeds(paramset_SHA256_t* params)
 {
     seeds_t* seeds = malloc((params->numMPCRounds + 1) * sizeof(seeds_t));
     size_t nSeeds = params->numMPCParties;
@@ -214,7 +226,7 @@ void freeSeeds(seeds_t* seeds)
     free(seeds);
 }
 
-commitments_t* allocateCommitments(paramset_t* params, size_t numCommitments)
+commitments_t* allocateCommitments(paramset_SHA256_t* params, size_t numCommitments)
 {
     commitments_t* commitments = malloc(params->numMPCRounds * sizeof(commitments_t));
 
@@ -244,7 +256,7 @@ void freeCommitments(commitments_t* commitments)
 
 
 /* Allocate one commitments_t object with capacity for numCommitments values */
-void allocateCommitments2(commitments_t* commitments, paramset_t* params, size_t numCommitments)
+void allocateCommitments2(commitments_t* commitments, paramset_SHA256_t* params, size_t numCommitments)
 {
     commitments->nCommitments = numCommitments;
 
@@ -268,7 +280,7 @@ void freeCommitments2(commitments_t* commitments)
     }
 }
 
-inputs_t allocateInputs(paramset_t* params)
+inputs_t allocateInputs(paramset_SHA256_t* params)
 {
     uint8_t* slab = calloc(1, params->numMPCRounds * (params->stateSizeWords*sizeof(uint32_t) + sizeof(uint8_t*)));
 
@@ -289,7 +301,7 @@ void freeInputs(inputs_t inputs)
     free(inputs);
 }
 
-msgs_t* allocateMsgs(paramset_t* params)
+msgs_t* allocateMsgs(paramset_SHA256_t* params)
 {
     msgs_t* msgs = malloc(params->numMPCRounds * sizeof(msgs_t));
     size_t msgsSize = params->andSizeBytes;
@@ -317,7 +329,7 @@ void freeMsgs(msgs_t* msgs)
     free(msgs);
 }
 
-view_t** allocateViews(paramset_t* params)
+view_t** allocateViews(paramset_SHA256_t* params)
 {
     // 3 views per round
     view_t** views = malloc(params->numMPCRounds * sizeof(view_t *));
@@ -332,7 +344,7 @@ view_t** allocateViews(paramset_t* params)
     return views;
 }
 
-void freeViews(view_t** views, paramset_t* params)
+void freeViews(view_t** views, paramset_SHA256_t* params)
 {
     for (size_t i = 0; i < params->numMPCRounds; i++) {
         for (size_t j = 0; j < 3; j++) {
@@ -344,7 +356,7 @@ void freeViews(view_t** views, paramset_t* params)
     free(views);
 }
 
-g_commitments_t* allocateGCommitments(paramset_t* params)
+g_commitments_t* allocateGCommitments(paramset_SHA256_t* params)
 {
     g_commitments_t* gs = NULL;
 

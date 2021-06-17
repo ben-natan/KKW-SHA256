@@ -42,10 +42,10 @@ void printLeaves(tree_t* tree);
 
 /* Returns the number of bytes written to output.  A safe number of bytes for
  * callers to allocate is numLeaves*params->seedSizeBytes, or call revealSeedsSize. */
-tree_t* generateSeeds(size_t nSeeds, uint8_t* rootSeed, uint8_t* salt, size_t repIndex, paramset_t* params);
-size_t revealSeeds(tree_t* tree, uint16_t* hideList, size_t hideListSize, uint8_t* output, size_t outputLen, paramset_t* params);
-size_t revealSeedsSize(size_t numNodes, uint16_t* hideList, size_t hideListSize, paramset_t* params);
-int reconstructSeeds(tree_t* tree, uint16_t* hideList, size_t hideListSize, uint8_t* input, size_t inputLen, uint8_t* salt, size_t repIndex, paramset_t* params);
+tree_t* generateSeeds(size_t nSeeds, uint8_t* rootSeed, uint8_t* salt, size_t repIndex, paramset_SHA256_t* params);
+size_t revealSeeds(tree_t* tree, uint16_t* hideList, size_t hideListSize, uint8_t* output, size_t outputLen, paramset_SHA256_t* params);
+size_t revealSeedsSize(size_t numNodes, uint16_t* hideList, size_t hideListSize, paramset_SHA256_t* params);
+int reconstructSeeds(tree_t* tree, uint16_t* hideList, size_t hideListSize, uint8_t* input, size_t inputLen, uint8_t* salt, size_t repIndex, paramset_SHA256_t* params);
 
 /* Functions for Merkle hash trees used for commitments.
  *
@@ -60,9 +60,9 @@ int reconstructSeeds(tree_t* tree, uint16_t* hideList, size_t hideListSize, uint
  *      3. verifyMerkleTree     Checks that all leaf nodes present are correct commitments
  *      4. freeTree
  */
-void buildMerkleTree(tree_t* tree, uint8_t** leafData, uint8_t* salt, paramset_t* params);
+void buildMerkleTree(tree_t* tree, uint8_t** leafData, uint8_t* salt, paramset_SHA256_t* params);
 uint8_t* openMerkleTree(tree_t* tree, uint16_t* missingLeaves, size_t missingLeavesSize, size_t* outputSizeBytes);
-size_t openMerkleTreeSize(size_t numNodes, uint16_t* notMissingLeaves, size_t notMissingLeavesSize, paramset_t* params);
+size_t openMerkleTreeSize(size_t numNodes, uint16_t* notMissingLeaves, size_t notMissingLeavesSize, paramset_SHA256_t* params);
 int addMerkleNodes(tree_t* tree, uint16_t* missingLeaves, size_t missingLeavesSize, uint8_t* input, size_t inputSize);
-int verifyMerkleTree(tree_t* tree, uint8_t** leafData, uint8_t* salt, paramset_t* params);
+int verifyMerkleTree(tree_t* tree, uint8_t** leafData, uint8_t* salt, paramset_SHA256_t* params);
 

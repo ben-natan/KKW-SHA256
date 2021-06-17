@@ -60,44 +60,44 @@ typedef struct shares_t {
 
 #define UNUSED_PARAMETER(x) (void)(x)
 
-void allocateView(view_t* view, paramset_t* params);
+void allocateView(view_t* view, paramset_SHA256_t* params);
 void freeView(view_t* view);
 
-size_t getTapeSizeBytes(const paramset_t* params);
-void allocateRandomTape(randomTape_t* tape, paramset_t* params);
+size_t getTapeSizeBytes(const paramset_SHA256_t* params);
+void allocateRandomTape(randomTape_t* tape, paramset_SHA256_t* params);
 void freeRandomTape(randomTape_t* tape);
 
-// void allocateProof(proof_t* proof, paramset_t* params);
+// void allocateProof(proof_t* proof, paramset_SHA256_t* params);
 // void freeProof(proof_t* proof);
 
-void allocateProof2(proof2_t* proof, paramset_t* params);
+void allocateProof2(proof2_t* proof, paramset_SHA256_t* params);
 void freeProof2(proof2_t* proof);
 
-// void allocateSignature(signature_t* sig, paramset_t* params);
-// void freeSignature(signature_t* sig, paramset_t* params);
+// void allocateSignature(signature_t* sig, paramset_SHA256_t* params);
+// void freeSignature(signature_t* sig, paramset_SHA256_t* params);
 
-seeds_t* allocateSeeds(paramset_t* params);
+seeds_t* allocateSeeds(paramset_SHA256_t* params);
 void freeSeeds(seeds_t* seeds);
 
-commitments_t* allocateCommitments(paramset_t* params, size_t nCommitments);
+commitments_t* allocateCommitments(paramset_SHA256_t* params, size_t nCommitments);
 void freeCommitments(commitments_t* commitments);
 
-void allocateCommitments2(commitments_t* commitments, paramset_t* params, size_t nCommitments);
+void allocateCommitments2(commitments_t* commitments, paramset_SHA256_t* params, size_t nCommitments);
 void freeCommitments2(commitments_t* commitments);
 
-inputs_t allocateInputs(paramset_t* params);
+inputs_t allocateInputs(paramset_SHA256_t* params);
 void freeInputs(inputs_t inputs);
 
-msgs_t* allocateMsgs(paramset_t* params);
+msgs_t* allocateMsgs(paramset_SHA256_t* params);
 void freeMsgs(msgs_t* msgs);
 
 shares_t* allocateShares(size_t count);
 void freeShares(shares_t* shares);
 
-view_t** allocateViews(paramset_t* params);
-void freeViews(view_t** views, paramset_t* params);
+view_t** allocateViews(paramset_SHA256_t* params);
+void freeViews(view_t** views, paramset_SHA256_t* params);
 
-g_commitments_t* allocateGCommitments(paramset_t* params);
+g_commitments_t* allocateGCommitments(paramset_SHA256_t* params);
 void freeGCommitments(g_commitments_t* gs);
 
 #endif /* PICNIC_TYPES_H */

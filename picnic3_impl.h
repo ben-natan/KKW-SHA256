@@ -22,13 +22,34 @@ typedef enum {
     TRANSFORM_INVALID = 255
 } transform_t;
 
-typedef struct paramset_t {
-    uint32_t numRounds;
-    uint32_t numSboxes;
+// typedef struct paramset_SHA256_t {
+//     uint32_t numRounds;
+//     uint32_t numSboxes;
+//     uint32_t stateSizeBits;
+//     uint32_t stateSizeBytes;
+//     uint32_t stateSizeWords;
+//     uint32_t andSizeBytes;
+//     uint32_t UnruhGWithoutInputBytes;
+//     uint32_t UnruhGWithInputBytes;
+//     uint32_t numMPCRounds;          // T
+//     uint32_t numOpenedRounds;       // u
+//     uint32_t numMPCParties;         // N
+//     uint32_t seedSizeBytes;
+//     uint32_t saltSizeBytes;
+//     uint32_t digestSizeBytes;
+//     transform_t transform;
+// } paramset_SHA256_t;
+
+
+
+typedef struct paramset_SHA256_t {
     uint32_t stateSizeBits;
     uint32_t stateSizeBytes;
     uint32_t stateSizeWords;
+    uint32_t inputSizeBits;
+    uint32_t wordSizeBits;
     uint32_t andSizeBytes;
+    uint32_t andSizeBits;
     uint32_t UnruhGWithoutInputBytes;
     uint32_t UnruhGWithInputBytes;
     uint32_t numMPCRounds;          // T
@@ -38,21 +59,6 @@ typedef struct paramset_t {
     uint32_t saltSizeBytes;
     uint32_t digestSizeBytes;
     transform_t transform;
-} paramset_t;
-
-typedef struct paramset_SHA256_t {
-    uint32_t stateSizeBits;
-    uint32_t stateSizeBytes;
-    uint32_t stateSizeWords;
-    uint32_t andSizeBytes;
-    uint32_t UnruhGWithoutInputBytes;
-    uint32_t UnruhGWithInputBytes;
-    uint32_t numMPCRounds;          // T
-    uint32_t numOpenedRounds;       // u
-    uint32_t numMPCParties;         // N
-    uint32_t seedSizeBytes;
-    uint32_t saltSizeBytes;
-    uint32_t digestSizeBytes;
 } paramset_SHA256_t;
 
 typedef struct proof2_t {
@@ -76,16 +82,16 @@ typedef struct signature2_t {
     proof2_t* proofs;           // One proof for each online execution the verifier checks
 } signature2_t;
 
-int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, paramset_t* params);
-int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_t* params);
+int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, paramset_SHA256_t* params);
+int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_SHA256_t* params);
 
-void allocateSignature2(signature2_t* sig, paramset_t* params);
-void freeSignature2(signature2_t* sig, paramset_t* params);
+void allocateSignature2(signature2_t* sig, paramset_SHA256_t* params);
+void freeSignature2(signature2_t* sig, paramset_SHA256_t* params);
 
 /* Returns the number of bytes written on success, or -1 on error */
-int serializeSignature2(const signature2_t* sig, uint8_t* sigBytes, size_t sigBytesLen, paramset_t* params);
+int serializeSignature2(const signature2_t* sig, uint8_t* sigBytes, size_t sigBytesLen, paramset_SHA256_t* params);
 /* Returns EXIT_SUCCESS on success or EXIT_FAILURE on error */
-int deserializeSignature2(signature2_t* sig, const uint8_t* sigBytes, size_t sigBytesLen, paramset_t* params);
+int deserializeSignature2(signature2_t* sig, const uint8_t* sigBytes, size_t sigBytesLen, paramset_SHA256_t* params);
 
 
 uint32_t ceil_log2(uint32_t x);

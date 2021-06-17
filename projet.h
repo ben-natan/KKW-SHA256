@@ -8,7 +8,7 @@
 
 
 
-int projet_sign(unsigned char witness[8]);
+int projet_sign(uint32_t* witness);
 
 
 
