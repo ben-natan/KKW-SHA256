@@ -36,7 +36,7 @@ static const uint32_t k[64] = { 0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
 
 
 
-int sha256(unsigned char* result, unsigned char* input, int numBits);
+int sha256(unsigned char* result, int numBits);
 
 
 #endif  /* SHA256_H */

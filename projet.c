@@ -15,9 +15,10 @@ int projet_sign(uint32_t* witness)
 
     unsigned char publicHash[32];  //256 bits
 
-    sha256(publicHash, (unsigned char*)"abcdefgh", numWitBits);
+    sha256(publicHash, numWitBits);
 
     printHex("publicHash", (uint8_t*)publicHash, 32);
+    printf("Wt; %s", (char*)witness);
 
     // paramset_t* params = malloc(60);
     paramset_SHA256_t* params = (paramset_SHA256_t*)malloc(sizeof(paramset_SHA256_t));
