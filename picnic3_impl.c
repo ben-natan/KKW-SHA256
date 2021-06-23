@@ -206,7 +206,17 @@ static uint16_t extend(uint8_t bit)
 
 static uint8_t aux_mpc_AND2(uint8_t mask_a, uint8_t mask_b, randomTape_t* tapes, paramset_SHA256_t* params)
 {
+
+    // for (int u = 0; u < 16; u++) {
+    //     setBit(tapes->tape[u], tapes->pos, 0);
+    // }
+
     uint16_t fresh_output_mask = tapesToWord(tapes);
+
+    // for (int u = 0; u < 16; u++) {
+    //     setBit(tapes->tape[u], tapes->pos, 1);
+    // }
+
     uint16_t and_helper = tapesToWord(tapes);
 
     setBit((uint8_t*)&and_helper, params->numMPCParties - 1, 0);
@@ -535,9 +545,12 @@ static void setAuxBits(randomTape_t* tapes, uint8_t* input, paramset_SHA256_t* p
 // picnic3-eprint.pdf page20    
 static uint8_t mpc_AND(uint8_t a, uint8_t b, uint16_t mask_a, uint16_t mask_b, uint16_t* mask_gamma, randomTape_t* tapes, msgs_t* msgs, paramset_SHA256_t* params)
 {
-    uint16_t and_helper = tapesToWord(tapes);   // The special mask value setup during preprocessing for each AND gate
     uint16_t output_mask = tapesToWord(tapes);
+    printf("OUT: %d --- ", output_mask);
     *mask_gamma = output_mask;
+    
+    uint16_t and_helper = tapesToWord(tapes);   // The special mask value setup during preprocessing for each AND gate
+    printf("HELP: %d \n", and_helper);
 
     // [s] = z^a [lamB] XOR z^b [lamA] XOR [lamA,B] XOR [lamG]      
     uint16_t s_shares = (extend(a) & mask_b) ^ (extend(b) & mask_a) ^ and_helper ^ output_mask; 
@@ -631,6 +644,7 @@ static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, int pa, int pb, int
         uint8_t ab = mpc_AND(a_bit, b_bit, mask_a, mask_b, &mask_gamma_ab, tapes, msgs, params);
 
 
+        printf("POSSSS : %d \n", tapes->pos);
         printf("REEL(ab) = %d\n", (parity16(mask_a) ^ a_bit)&(parity16(mask_b) ^ b_bit));
         printf("a: %d  b: %d  mask ^ MASQUÉ(ab) = %d\n\n", a_bit, b_bit, parity16(mask_gamma_ab) ^ ab);
         // On doit avoir REEL(ab) = mask ^ MASQUÉ(ab), ce n'est pas le cas
