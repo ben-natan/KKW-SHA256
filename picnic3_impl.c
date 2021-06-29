@@ -410,10 +410,11 @@ static uint16_t aux_mpc_AND2(uint16_t mask_a, uint16_t mask_b, randomTape_t* tap
     size_t lastParty = params->numMPCParties - 1; // 15 
     setBit(tapes->tape[lastParty], tapes-> pos - 1, (uint8_t)aux_bit);
 
-    // if (tapes->pos > 511 && tapes->pos < 512 + 32 *4) {
+    // if (tapes->pos > 639 && tapes->pos < 640 + 32 *4) {
     //     tapes->pos = tapes->pos - 1;
     //     uint16_t new_andh = tapesToWord(tapes);
-    //     printf("       and_helper = %d   fresh = %d \n", new_andh, fresh_output_mask);
+    //     printf("[AUX](%d)    mask_a : %d   mask_b : %d\n ", tapes->pos, mask_a, mask_b);
+    //     printf("       fresh = %d   and_helper = %d \n", fresh_output_mask, new_andh);
     // }
     
     return fresh_output_mask;
@@ -601,7 +602,7 @@ static void computeAuxTapeSHA256(randomTape_t* tapes, uint8_t* inputs, paramset_
         
         // w[i] = w[i - 16] + s0 + w[i - 7] + s1;
         aux_ADD32_mpc(i-16, 64, 66, state_masks, tapes, params);
-        aux_ADD32_mpc(i-7, 6, 67, state_masks, tapes, params);
+        aux_ADD32_mpc(i-7, 65, 67, state_masks, tapes, params);
         aux_ADD32_mpc(66, 67, i, state_masks, tapes, params);
 
         // w16_s0 = aux_ADD32_mpc(w[i-16], s0, tapes, params);
@@ -830,6 +831,10 @@ static uint8_t mpc_AND(uint8_t a, uint8_t b, uint16_t mask_a, uint16_t mask_b, u
     //     // assert( (lamA & lamB) == parity16(and_helper));
     // }
 
+    // if (tapes->pos > 639 && tapes->pos < 640 + 32 * 4) {
+    //     printf("         FRESH = %d   ANDH = %d  \n", output_mask, and_helper);
+    // }
+
     if (msgs->unopened >= 0) {  
         uint8_t unopenedPartyBit = getBit(msgs->msgs[msgs->unopened], msgs->pos);
         setBit((uint8_t*)&s_shares, msgs->unopened, unopenedPartyBit);
@@ -885,6 +890,24 @@ static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, int pa, int pb, int
     uint8_t cin = 0;
     uint16_t mask_cin = 0;
 
+
+
+        // DEBUG
+        uint32_t wordMask_a;
+        uint32_t wordMask_b;
+        for (int i = 0; i < 32; i++) {
+            SETBIT(wordMask_a, i, parity16(getMask(pa, 31 - i, state_masks)));
+            SETBIT(wordMask_b, i, parity16(getMask(pb, 31 - i, state_masks)));
+        }
+
+        uint32_t real_a = wordMask_a ^ a;
+        uint32_t real_b = wordMask_b ^ b;
+        uint32_t real_a_plus_b = real_a + real_b;
+        // FIN DEBUG
+
+
+
+
     // Indexations de masques et de GETBIT a et b inversées ATTENTION
     for (int i = 0; i < 32; i++) {
         uint8_t a_bit = GETBIT(a, i);
@@ -893,7 +916,7 @@ static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, int pa, int pb, int
         uint8_t b_bit = GETBIT(b, i);
         uint16_t mask_b = getMask(pb, 31 - i, state_masks);
 
-        // if (tapes->pos > 511 && tapes->pos < 512 + 32*4) {
+        // if (tapes->pos > 639 && tapes->pos < 640 + 32*4) {
         //     printf("[SIM](%d) MASK_A = %d   MASK_B = %d \n", tapes->pos, mask_a, mask_b);
         // }
 
@@ -913,26 +936,22 @@ static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, int pa, int pb, int
         uint16_t mask_gamma_cin_axorb;
         uint8_t cin_axorb = mpc_AND(cin, a_xor_b, mask_cin, mask_a_xor_b, &mask_gamma_cin_axorb, tapes, msgs, params);
 
-
-        
         cin = ab ^ cin_axorb;
         mask_cin = mask_gamma_ab ^ mask_gamma_cin_axorb;
-        
-        
+          
 
-        if (tapes->pos > 511 && tapes->pos < 512 + 32*4 + 1) {
+        if (tapes->pos > 639 && tapes->pos < 640 + 32*4 + 1) {
 
-            printf(" SIM(%d) \n", tapes->pos);
-            uint8_t real_a = parity16(mask_a) ^ a_bit;
-            uint8_t real_b = parity16(mask_b) ^ b_bit;
-            uint8_t real_cin = parity16(mask_cin) ^ cin;
+            // uint8_t real_a = parity16(mask_a) ^ a_bit;
+            // uint8_t real_b = parity16(mask_b) ^ b_bit;
+            // uint8_t real_cin = parity16(mask_cin) ^ cin;
 
-            assert( (cin_axorb ^ parity16(mask_gamma_cin_axorb)) == (real_cin & (real_a ^ real_b)) );
-            assert( (ab ^ parity16(mask_gamma_ab)) == (real_a & real_b) );
+            // assert( (cin_axorb ^ parity16(mask_gamma_cin_axorb)) == (real_cin & (real_a ^ real_b)) );
+            // assert( (ab ^ parity16(mask_gamma_ab)) == (real_a & real_b) );
 
-            uint8_t real_ab = (parity16(mask_a) ^ a_bit) & (parity16(mask_b) ^ b_bit);
-            uint8_t mask_xor_maskedab = parity16(mask_gamma_ab) ^ ab;
-            assert(real_ab == mask_xor_maskedab);
+            // uint8_t real_ab = (parity16(mask_a) ^ a_bit) & (parity16(mask_b) ^ b_bit);
+            // uint8_t mask_xor_maskedab = parity16(mask_gamma_ab) ^ ab;
+            // assert(real_ab == mask_xor_maskedab);
 
 
             // printf("%d  \n", tapes->pos);
@@ -941,8 +960,15 @@ static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, int pa, int pb, int
 
             // uint8_t real_cin_axorb = (parity16(mask_cin) ^ cin) & (parity16(mask_a_xor_b) ^ a_xor_b);
             // uint8_t mask_xor_maskedcin_xor_ab = parity16(mask_gamma_cin_axorb) ^ cin_axorb;
-            // printf("real_cin_axorb = %d & mask... = %d \n", real_cin_axorb, mask_xor_maskedcin_xor_ab);
+            // // printf("real_cin_axorb = %d & mask... = %d \n", real_cin_axorb, mask_xor_maskedcin_xor_ab);
             // assert(real_cin_axorb == mask_xor_maskedcin_xor_ab);
+
+
+            uint16_t chmask_sum = getMask(ps, 31 - i, state_masks);
+            uint8_t real_sum_bit = parity16(chmask_sum) ^ GETBIT(*sum, i);
+            assert(real_sum_bit == GETBIT(real_a_plus_b, i));
+
+
             
 
 
@@ -956,6 +982,7 @@ static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, int pa, int pb, int
 
         
     }
+
 }
 
 
@@ -1188,57 +1215,78 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
 		s0 = RIGHTROTATE(w[i - 15], 7) ^ RIGHTROTATE(w[i - 15], 18)
 						^ (w[i - 15] >> 3);
 
-        
-
-
         loadS0Masks(i, state_masks);
 
 
-        if (false) {
-            printf("Maskeds0[%d] = %d ---  ", i, s0);
-            uint32_t* s0mask = malloc(sizeof(uint32_t));
-            s0mask[0] = 0;
-            reconstructWordMask3(s0mask, state_masks, 64);
-            printf("s0mask[%d] = %d ---  ", i, s0mask[0]);
+        // if (true) {
+        //     printf("Maskeds0[%d] = %d ---  ", i, s0);
+        //     uint32_t* s0mask = malloc(sizeof(uint32_t));
+        //     s0mask[0] = 0;
+        //     reconstructWordMask3(s0mask, state_masks, 64);
+        //     printf("s0mask[%d] = %d ---  ", i, s0mask[0]);
 
-            uint32_t* w15mask = malloc(sizeof(uint32_t));
+        //     uint32_t* w15mask = malloc(sizeof(uint32_t));
 
-            reconstructWordMask3(w15mask, state_masks, i-15);
+        //     reconstructWordMask3(w15mask, state_masks, i-15);
             
-            uint32_t rotatedmask = RIGHTROTATE(w15mask[0], 7) ^ RIGHTROTATE(w15mask[0], 18)
-                            ^ (w15mask[0] >> 3);
+        //     uint32_t rotatedmask = RIGHTROTATE(w15mask[0], 7) ^ RIGHTROTATE(w15mask[0], 18)
+        //                     ^ (w15mask[0] >> 3);
             
-            printf("rotatedmask[%d] = %d ---  ", i, rotatedmask);
+        //     printf("rotatedmask[%d] = %d ---  ", i, rotatedmask);
 
-            assert(rotatedmask == *s0mask);
-            // uint32_t unmaskedS0 = s0 ^ rotatedmask;
-            uint32_t unmaskedS0 = s0 ^ s0mask[0];
-            printf("s0[%d] = %d \n", i, unmaskedS0);
+        //     assert(rotatedmask == *s0mask);
+        //     // uint32_t unmaskedS0 = s0 ^ rotatedmask;
+        //     uint32_t unmaskedS0 = s0 ^ s0mask[0];
+        //     printf("s0[%d] = %d \n", i, unmaskedS0);
 
 
-        }
+        // }
         
 
 		s1 = RIGHTROTATE(w[i - 2], 17) ^ RIGHTROTATE(w[i - 2], 19)
 						^ (w[i - 2] >> 10);
+
         loadS1Masks(i, state_masks);
 
+        
 
 
 		// w[i] = w[i - 16] + s0 + w[i - 7] + s1;
 
 
+
         mpc_ADD32(w[i-16], s0, &w16_s0, i - 16, 64, 66, state_masks, tapes, msgs, params);
 
-        uint32_t* w16_s0mask = malloc(sizeof(uint32_t));
-        reconstructWordMask3(w16_s0mask, state_masks, 66);
+        // uint32_t* w16_s0mask = malloc(sizeof(uint32_t));
+        // reconstructWordMask3(w16_s0mask, state_masks, 66);
+        // printf("MASKEDw16_s0[%d] = %d   ---   w16_s0mask[%d] = %d   ---   REAL_w16_s0[%d] = %d\n", i, w16_s0, i, w16_s0mask[0], i, w16_s0 ^ w16_s0mask[0]);
 
-        printf("MASKEDw16_s0[%d] = %d  ---   w16_s0mask[%d] = %d   ---   REAL_w16_s0[%d] = %d\n", i, w16_s0, i, *w16_s0mask, i, w16_s0 ^ *w16_s0mask);
-
-        mpc_ADD32(w[i-7], s1, &w7_s1, i-7, 6, 67, state_masks, tapes, msgs, params);
+        mpc_ADD32(w[i-7], s1, &w7_s1, i-7, 65, 67, state_masks, tapes, msgs, params);
         
         mpc_ADD32(w16_s0, w7_s1, &w[i], 66, 67, i, state_masks, tapes, msgs, params);
 
+        // if (true) {
+        //     uint32_t* s0mask = malloc(sizeof(uint32_t));
+        //     uint32_t* s1mask = malloc(sizeof(uint32_t));
+        //     uint32_t* w2mask = malloc(sizeof(uint32_t));
+        //     uint32_t* wimask = malloc(sizeof(uint32_t));
+        //     // uint32_t* w16_s0mask = malloc(sizeof(uint32_t));
+        //     uint32_t* w7_s1mask = malloc(sizeof(uint32_t));
+        //     reconstructWordMask3(s0mask, state_masks, 64);
+        //     reconstructWordMask3(s1mask, state_masks, 65);
+        //     reconstructWordMask3(w2mask, state_masks, i-2);
+        //     reconstructWordMask3(wimask, state_masks, i);
+        //     // reconstructWordMask3(w16_s0mask, state_masks, 66);
+        //     reconstructWordMask3(w7_s1mask, state_masks, 67);
+        //     // printf("s0[%d] = %d              s1[%d] = %d         w[%d - 2] = %d       w[%d] = %d       w16_s0[%d] = %d\n", i, *s0mask ^ s0, i, *s1mask ^ s1, i, *w2mask ^ w[i-2], i, *wimask ^ w[i], i, *w16_s0mask ^ w16_s0);
+        //     printf("s0[%d] = %d              s1[%d] = %d         w[%d - 2] = %d       w[%d] = %d       w7_s1[%d] = %d\n", i, *s0mask ^ s0, i, *s1mask ^ s1, i, *w2mask ^ w[i-2], i, *wimask ^ w[i], i, *w7_s1mask ^ w7_s1);
+        // }
+
+        if (true) {
+            uint32_t* wimask = malloc(sizeof(uint32_t));
+            reconstructWordMask3(wimask, state_masks, i);
+            printf("w[%d] = %d \n", i, *wimask ^ w[i]);
+        }
         
 	}
 

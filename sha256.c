@@ -46,7 +46,7 @@ int sha256(unsigned char* result, int numBits) {
 	for (i = 0; i < 16; i++) {
 		w[i] = (chunk[i * 4] << 24) | (chunk[i * 4 + 1] << 16)
 						| (chunk[i * 4 + 2] << 8) | chunk[i * 4 + 3];
-		// printf("[SHA256] w[%d] = %d \n", i, w[i]);
+		printf("[SHA256] w[%d] = %d \n", i, w[i]);
 	}
 
 	uint32_t s0, s1;
@@ -54,17 +54,17 @@ int sha256(unsigned char* result, int numBits) {
 		s0 = RIGHTROTATE(w[i - 15], 7) ^ RIGHTROTATE(w[i - 15], 18)
 						^ (w[i - 15] >> 3);
 
-		// printf("[SHA256] s0[%d] = %d \n",i, s0);
-
 		s1 = RIGHTROTATE(w[i - 2], 17) ^ RIGHTROTATE(w[i - 2], 19)
 						^ (w[i - 2] >> 10);
 
 
-		uint32_t w16_s0 = w[i - 16] + s0;
-		printf("[SHA256] w16_s0[%d] = %d \n", i, w16_s0);
+		// uint32_t w16_s0 = w[i - 16] + s0;
+		// uint32_t w7_s1 = w[i - 7] + s1;		
 
 		w[i] = w[i - 16] + s0 + w[i - 7] + s1;
 		
+		// printf("[SHA]  s0[%d] = %d             s1[%d] = %d             w[%d] = %d             w7_s1[%d] = %d\n", i, s0, i, s1, i, w[i], i, w7_s1);
+		printf("[SHA256] w[%d] = %d \n", i, w[i]);
 	}
 
 	uint32_t a, b, c, d, e, f, g, h, temp1, temp2, maj;
