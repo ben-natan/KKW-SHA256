@@ -46,7 +46,7 @@ int sha256(unsigned char* result, int numBits) {
 	for (i = 0; i < 16; i++) {
 		w[i] = (chunk[i * 4] << 24) | (chunk[i * 4 + 1] << 16)
 						| (chunk[i * 4 + 2] << 8) | chunk[i * 4 + 3];
-		printf("[SHA256] w[%d] = %d \n", i, w[i]);
+		// printf("[SHA256] w[%d] = %d \n", i, w[i]);
 	}
 
 	uint32_t s0, s1;
@@ -64,7 +64,7 @@ int sha256(unsigned char* result, int numBits) {
 		w[i] = w[i - 16] + s0 + w[i - 7] + s1;
 		
 		// printf("[SHA]  s0[%d] = %d             s1[%d] = %d             w[%d] = %d             w7_s1[%d] = %d\n", i, s0, i, s1, i, w[i], i, w7_s1);
-		printf("[SHA256] w[%d] = %d \n", i, w[i]);
+		// printf("[SHA256] w[%d] = %d \n", i, w[i]);
 	}
 
 	uint32_t a, b, c, d, e, f, g, h, temp1, temp2, maj;
@@ -80,22 +80,38 @@ int sha256(unsigned char* result, int numBits) {
 	for (i = 0; i < 64; i++) {
 		s1 = RIGHTROTATE(e,6) ^ RIGHTROTATE(e, 11) ^ RIGHTROTATE(e, 25);
 
-		temp1 = h + s1 + CH(e, f, g) + k[i] + w[i];
-		s0 = RIGHTROTATE(a,2) ^ RIGHTROTATE(a, 13) ^ RIGHTROTATE(a, 22);
+		// printf("[SHA256] s1[%d] = %d \n", i, s1);
+		// printf("[SHA256] ch[%d] = %d\n", i, CH(e,f,g));
+		// printf("[SHA256] h_s1[%d] = %d \n", i, h + s1);
+		// printf("[SHA256] ch_k[%d] = %d \n", i, CH(e,f,g) + k[i]);
+		// printf("[SHA256] chk_w[%d] = %d \n ", i, CH(e,f,g) + k[i] + w[i]);
 
+		temp1 = h + s1 + CH(e, f, g) + k[i] + w[i];
+		// printf("[SHA256] temp1[%d] = %d\n",i, temp1);
+
+		s0 = RIGHTROTATE(a,2) ^ RIGHTROTATE(a, 13) ^ RIGHTROTATE(a, 22);
+		// printf("[SHA256] s0[%d] = %d \n", i, s0);
 
 		maj = (a & (b ^ c)) ^ (b & c);
+		// printf("[SHA256] maj[%d] = %d   a = %d  b = %d  c = %d\n", i, maj, a, b, c);
 		temp2 = s0 + maj;
-
+		// printf("[SHA256] temp2[%d] = %d \n", i, temp2);
 
 		h = g;
 		g = f;
 		f = e;
+		// printf("[SHA256] [%d] h = %d   g = %d   f = %d\n", i, h, g, f);
+
 		e = d + temp1;
+		// printf("[SHA256] e[%d] = %d \n", i, e);
+
 		d = c;
 		c = b;
 		b = a;
+		// printf("[SHA256] [%d]  d = %d  c = %d  b = %d\n", i, d, c, b);
+
 		a = temp1 + temp2;
+		printf("[SHA256] a[%d] = %d\n", i, a);   // BUG SUR A[2] != a[2]
 
 	}
 	// taille a = 32 bits
