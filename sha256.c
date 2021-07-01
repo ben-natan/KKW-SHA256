@@ -111,10 +111,12 @@ int sha256(unsigned char* result, int numBits) {
 		// printf("[SHA256] [%d]  d = %d  c = %d  b = %d\n", i, d, c, b);
 
 		a = temp1 + temp2;
-		printf("[SHA256] a[%d] = %d\n", i, a);   // BUG SUR A[2] != a[2]
+		// printf("[SHA256] a[%d] = %d\n", i, a);   // BUG SUR A[2] != a[2]
 
 	}
 	// taille a = 32 bits
+	
+	
 	_hA[0] += a;
 	_hA[1] += b;
 	_hA[2] += c;
