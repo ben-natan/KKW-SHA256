@@ -54,16 +54,20 @@ int sha256(unsigned char* result, int numBits) {
 		s0 = RIGHTROTATE(w[i - 15], 7) ^ RIGHTROTATE(w[i - 15], 18)
 						^ (w[i - 15] >> 3);
 
+		// printf("[SHA256] s0[%d] = %d\n", i, s0);
+
 		s1 = RIGHTROTATE(w[i - 2], 17) ^ RIGHTROTATE(w[i - 2], 19)
 						^ (w[i - 2] >> 10);
 
+		// printf("[SHA256] s1[%d] = %d\n", i, s1);
 
 		// uint32_t w16_s0 = w[i - 16] + s0;
+		// printf("[SHA256] w16_s0[%d] = %d\n", i, w16_s0);
+
 		// uint32_t w7_s1 = w[i - 7] + s1;		
+		// printf("[SHA256] w7_s1[%d] = %d\n", i, w7_s1);
 
 		w[i] = w[i - 16] + s0 + w[i - 7] + s1;
-		
-		// printf("[SHA]  s0[%d] = %d             s1[%d] = %d             w[%d] = %d             w7_s1[%d] = %d\n", i, s0, i, s1, i, w[i], i, w7_s1);
 		// printf("[SHA256] w[%d] = %d \n", i, w[i]);
 	}
 
@@ -76,6 +80,8 @@ int sha256(unsigned char* result, int numBits) {
 	f = _hA[5];
 	g = _hA[6];
 	h = _hA[7];
+
+	printf("[SHA256] a = %d  b = %d  c = %d  d = %d  e = %d  f = %d  g = %d  h = %d\n", a, b, c, d, e, f, g, h);
 
 	for (i = 0; i < 64; i++) {
 		s1 = RIGHTROTATE(e,6) ^ RIGHTROTATE(e, 11) ^ RIGHTROTATE(e, 25);

@@ -145,6 +145,12 @@ static void loadInputMasks(shares_t* state_masks, shares_t* input_masks)
             state_masks->shares[32*p + i] = input_masks->shares[32*p + i];
         }
     }
+
+    for (int p = 16; p < 83; p++) {
+        for (int i = 0; i < 32; i++) {
+            state_masks->shares[32*p + i] = 0;
+        }
+    }
 }
 
 
@@ -1347,7 +1353,15 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
     loadInputMasks(state_masks, input_masks);
 	for (i = 0; i < 16; i++) {
         w[i] = maskedKey[i];
+
+        // if (true) {
+        //     uint32_t* wmask = malloc(sizeof(uint32_t));
+        //     reconstructWordMask3(wmask, state_masks, i);
+        //     printf("[SIM] w[%d] = %d\n", i, *wmask ^ w[i]);
+        // }
 	}
+
+    
 
     uint32_t s0, s1, w16_s0, w7_s1;
 	for (i = 16; i < 64; i++) {
@@ -1356,29 +1370,10 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
 
         loadS0Masks(i, state_masks);
 
-
         // if (true) {
-        //     printf("Maskeds0[%d] = %d ---  ", i, s0);
         //     uint32_t* s0mask = malloc(sizeof(uint32_t));
-        //     s0mask[0] = 0;
         //     reconstructWordMask3(s0mask, state_masks, 64);
-        //     printf("s0mask[%d] = %d ---  ", i, s0mask[0]);
-
-        //     uint32_t* w15mask = malloc(sizeof(uint32_t));
-
-        //     reconstructWordMask3(w15mask, state_masks, i-15);
-            
-        //     uint32_t rotatedmask = RIGHTROTATE(w15mask[0], 7) ^ RIGHTROTATE(w15mask[0], 18)
-        //                     ^ (w15mask[0] >> 3);
-            
-        //     printf("rotatedmask[%d] = %d ---  ", i, rotatedmask);
-
-        //     assert(rotatedmask == *s0mask);
-        //     // uint32_t unmaskedS0 = s0 ^ rotatedmask;
-        //     uint32_t unmaskedS0 = s0 ^ s0mask[0];
-        //     printf("s0[%d] = %d \n", i, unmaskedS0);
-
-
+        //     printf("[SIM] s0[%d] = %d\n", i, *s0mask ^ s0);
         // }
         
 
@@ -1387,22 +1382,40 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
 
         loadS1Masks(i, state_masks);
 
+        // if (true) {
+        //     uint32_t* s1mask = malloc(sizeof(uint32_t));
+        //     reconstructWordMask3(s1mask, state_masks, 65);
+        //     printf("[SIM] s1[%d] = %d\n", i, *s1mask ^ s1);
+        // }
+
+
         
 
 
 		// w[i] = w[i - 16] + s0 + w[i - 7] + s1;
-
-
-
         mpc_ADD32(w[i-16], s0, &w16_s0, i - 16, 64, 66, state_masks, tapes, msgs, params);
 
-        // uint32_t* w16_s0mask = malloc(sizeof(uint32_t));
-        // reconstructWordMask3(w16_s0mask, state_masks, 66);
-        // printf("MASKEDw16_s0[%d] = %d   ---   w16_s0mask[%d] = %d   ---   REAL_w16_s0[%d] = %d\n", i, w16_s0, i, w16_s0mask[0], i, w16_s0 ^ w16_s0mask[0]);
+        // if (true) {
+        //     uint32_t* w16_s0mask = malloc(sizeof(uint32_t));
+        //     reconstructWordMask3(w16_s0mask, state_masks, 66);
+        //     printf("[SIM] w16_s0[%d] = %d\n", i, *w16_s0mask ^ w16_s0);
+        // }
 
         mpc_ADD32(w[i-7], s1, &w7_s1, i-7, 65, 67, state_masks, tapes, msgs, params);
         
+        // if (true) {
+        //     uint32_t* w7_s1mask = malloc(sizeof(uint32_t));
+        //     reconstructWordMask3(w7_s1mask, state_masks, 67);
+        //     printf("[SIM] w7_s1[%d] = %d\n", i, *w7_s1mask ^ w7_s1);
+        // }
+
         mpc_ADD32(w16_s0, w7_s1, &w[i], 66, 67, i, state_masks, tapes, msgs, params);
+
+        // if (true) {
+        //     uint32_t* wmask = malloc(sizeof(uint32_t));
+        //     reconstructWordMask3(wmask, state_masks, i);
+        //     printf("[SIM] w[%d] = %d \n", i, *wmask ^ w[i]);
+        // }
 
         // if (true) {
         //     uint32_t* s0mask = malloc(sizeof(uint32_t));
@@ -1420,12 +1433,6 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
         //     // printf("s0[%d] = %d              s1[%d] = %d         w[%d - 2] = %d       w[%d] = %d       w16_s0[%d] = %d\n", i, *s0mask ^ s0, i, *s1mask ^ s1, i, *w2mask ^ w[i-2], i, *wimask ^ w[i], i, *w16_s0mask ^ w16_s0);
         //     printf("s0[%d] = %d              s1[%d] = %d         w[%d - 2] = %d       w[%d] = %d       w7_s1[%d] = %d\n", i, *s0mask ^ s0, i, *s1mask ^ s1, i, *w2mask ^ w[i-2], i, *wimask ^ w[i], i, *w7_s1mask ^ w7_s1);
         // }
-
-        if (false) {
-            uint32_t* wimask = malloc(sizeof(uint32_t));
-            reconstructWordMask3(wimask, state_masks, i);
-            printf("w[%d] = %d \n", i, *wimask ^ w[i]);
-        }
         
 	}
 
@@ -1440,7 +1447,30 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
 	g = _hA[6];
 	h = _hA[7];
     maj = 0;
-    ch = 0; 
+    ch = 0;
+
+    if (true) {
+        uint32_t* amask = malloc(sizeof(uint32_t));
+        uint32_t* bmask = malloc(sizeof(uint32_t));
+        uint32_t* cmask = malloc(sizeof(uint32_t));
+        uint32_t* dmask = malloc(sizeof(uint32_t));
+        uint32_t* emask = malloc(sizeof(uint32_t));
+        uint32_t* fmask = malloc(sizeof(uint32_t));
+        uint32_t* gmask = malloc(sizeof(uint32_t));
+        uint32_t* hmask = malloc(sizeof(uint32_t));
+
+        reconstructWordMask3(amask, state_masks, 68);
+        reconstructWordMask3(bmask, state_masks, 69);
+        reconstructWordMask3(cmask, state_masks, 70);
+        reconstructWordMask3(dmask, state_masks, 71);
+        reconstructWordMask3(emask, state_masks, 72);
+        reconstructWordMask3(fmask, state_masks, 73);
+        reconstructWordMask3(gmask, state_masks, 74);
+        reconstructWordMask3(hmask, state_masks, 75);
+
+        printf("a = %d  b = %d  c = %d  d = %d  e = %d  f = %d  g = %d  h=%d", *amask ^ a, *bmask ^ b, *cmask ^ c, *dmask ^ d, *emask ^ e, *fmask ^ f, *gmask ^ g, *hmask ^ h);
+
+    }
 
     uint32_t h_s1, ch_k, chk_w;
     for (i = 0; i < 64; i++) {
@@ -1651,6 +1681,7 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
 	}
 
     printHex("Hash calculé", (uint8_t*)finalHash, 32);
+    printf("\n\n\n");
 
     if (memcmp(finalHash, publicHash, params->stateSizeBytes) != 0) {
         ret = -1;
