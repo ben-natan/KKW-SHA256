@@ -91,7 +91,7 @@ void allocateProof2(proof2_t* proof, paramset_SHA256_t* params)
     proof->seedInfo = NULL;     // Sign/verify code sets it
     proof->seedInfoLen = 0;
     proof->C = malloc(params->digestSizeBytes);
-    proof->input = calloc(1, params->stateSizeBytes);
+    proof->input = calloc(1, 16 * sizeof(uint32_t));
     proof->aux = calloc(1, params->andSizeBytes);
     proof->msgs = calloc(1, params->andSizeBytes);
 
@@ -295,6 +295,24 @@ inputs_t allocateInputs(paramset_SHA256_t* params)
 
     return inputs;
 }
+
+
+inputs_t allocateInputs2(paramset_SHA256_t* params)
+{
+    uint8_t* slab = calloc(1, params->numMPCRounds * ( 16 * sizeof(uint32_t) + sizeof(uint8_t*)));
+
+    inputs_t inputs = (uint8_t**)slab;
+
+    slab += params->numMPCRounds * sizeof(uint8_t*);
+
+    for (uint32_t i = 0; i < params->numMPCRounds; i++) {
+        inputs[i] = (uint8_t*)slab;
+        slab += 16 * sizeof(uint32_t);
+    }
+
+    return inputs;
+}
+
 
 void freeInputs(inputs_t inputs)
 {

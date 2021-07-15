@@ -86,6 +86,7 @@ void allocateCommitments2(commitments_t* commitments, paramset_SHA256_t* params,
 void freeCommitments2(commitments_t* commitments);
 
 inputs_t allocateInputs(paramset_SHA256_t* params);
+inputs_t allocateInputs2(paramset_SHA256_t* params);
 void freeInputs(inputs_t inputs);
 
 msgs_t* allocateMsgs(paramset_SHA256_t* params);

@@ -27,7 +27,8 @@ int projet_sign(uint32_t* witness)
     params->numOpenedRounds = 2;
     params->numMPCParties = 16;
     params->digestSizeBytes = 32;
-    params->andSizeBytes = 5312; // d'après calcul sur feuille 
+    // params->andSizeBytes = 5312; // d'après calcul sur feuille
+    params->andSizeBytes = 5824; 
     params->stateSizeBytes = 4;
     params->seedSizeBytes = 1;
     params->stateSizeWords = (params->stateSizeBits + WORD_SIZE_BITS - 1)/ WORD_SIZE_BITS;
@@ -53,5 +54,7 @@ int projet_sign(uint32_t* witness)
     fflush(stdout);
 
     int ret = sign_picnic3(witness, (uint32_t*)publicHash, sig, params);
+
+    ret = verify_picnic3(sig, (uint32_t*)publicHash, params);
     return ret;
 }

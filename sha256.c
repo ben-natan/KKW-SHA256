@@ -132,6 +132,10 @@ int sha256(unsigned char* result, int numBits) {
 	_hA[6] += g;
 	_hA[7] += h;
 
+	for (i = 0; i<8; i++) {
+		printf("%d:  %d\n", i, _hA[i]);
+	}
+
 	for (i = 0; i < 8; i++) {
 		result[i * 4] = (_hA[i] >> 24);
 		result[i * 4 + 1] = (_hA[i] >> 16);
