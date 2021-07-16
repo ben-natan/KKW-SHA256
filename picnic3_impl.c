@@ -169,7 +169,6 @@ static void loadInputMasks(shares_t* state_masks, shares_t* input_masks)
 }
 
 
-// FONCTIONNE
 static void loadS0Masks(int i, shares_t* mask_shares)
 {
     int j;
@@ -275,9 +274,6 @@ static void loadS0Masks2(shares_t* mask_shares)
 }
 
 
-
-
-
 /* Number of leading zeroes of x.
  * From the book
  * H.S. Warren, *Hacker's Delight*, Pearson Education, 2003.
@@ -353,19 +349,6 @@ static void tapesToWords(shares_t* shares, randomTape_t* tapes)
     }
 }
 
-// static void copyShares(shares_t* dst, shares_t* src)
-// {
-//     assert(dst->numWords == src->numWords);
-//     memcpy(dst->shares, src->shares, dst->numWords * sizeof(dst->shares[0]));
-// }
-
-// static void tapesToParityBits(uint32_t* output, size_t outputBitLen, randomTape_t* tapes)
-// {
-//     for (size_t i = 0; i < outputBitLen; i++) {
-//         setBitInWordArray(output, i, parity16(tapesToWord(tapes)));
-//     }
-// }
-
 
 /* For an input bit b = 0 or 1, return the word of all b bits, i.e.,
  * extend(1) = 0xFFFFFFFFFFFFFFFF
@@ -378,47 +361,6 @@ static uint16_t extend(uint8_t bit)
     return ~(bit - 1);
 }
 
-
-// static uint8_t aux_mpc_AND2(uint8_t mask_a, uint8_t mask_b, randomTape_t* tapes, paramset_SHA256_t* params)
-// {
-
-//     // for (int u = 0; u < 16; u++) {
-//         // setBit(tapes->tape[u], tapes->pos, u);
-//     // }
-
-//     uint16_t fresh_output_mask = tapesToWord(tapes);
-
-//     // for (int u = 0; u < 16; u++) {
-//     //     setBit(tapes->tape[u], tapes->pos, 16-u);
-//     // }
-
-//     uint16_t and_helper = tapesToWord(tapes);
-
-//     // if (tapes->pos > 511 && tapes->pos < 512 + 32 * 4) {
-//     //         printf("[AUX222](%d) bit_a = %d  bit_b = %d\n\n", tapes->pos, mask_a, mask_b);
-//     // }
-
-//     setBit((uint8_t*)&and_helper, params->numMPCParties - 1, 0);
-//     uint16_t aux_bit = (mask_a & mask_b) ^ parity16(and_helper);
-//     size_t lastParty = params->numMPCParties - 1; // 15 
-//     setBit(tapes->tape[lastParty], tapes-> pos - 1, (uint8_t)aux_bit);
-
-//     if (tapes->pos > 511 && tapes->pos < 512 + 32*4) {
-//         // printf("[AUX] pos: %d\n", tapes->pos);
-//         tapes->pos = tapes->pos - 2;
-//         uint16_t trueOutputMask = tapesToWord(tapes);
-//         uint16_t trueAH = tapesToWord(tapes);
-//         // if (tapes->pos == 536) {
-//         //     printf("[VOILA] %d   --->  %d == %d \n", trueAH, parity16(trueAH), (mask_a & mask_b));
-//         // }
-//         printf("[AUX](%d) and_helper = %d\n", tapes->pos, trueAH);
-//         printf("          output_mask = %d \n", trueOutputMask);
-//         printf("          mask_a = %d   mask_b = %d\n", mask_a, mask_b);
-//         assert(parity16(trueAH) == (mask_a & mask_b));
-//     }
-    
-//     return fresh_output_mask;
-// }
 
 static uint16_t aux_mpc_AND2(uint16_t mask_a, uint16_t mask_b, randomTape_t* tapes, paramset_SHA256_t* params)
 {
@@ -436,22 +378,6 @@ static uint16_t aux_mpc_AND2(uint16_t mask_a, uint16_t mask_b, randomTape_t* tap
     return fresh_output_mask;
 }
 
-// void aux_CH_mpc(uint32_t e, uint32_t f, uint32_t g, uint32_t* ch, randomTape_t* tapes, paramset_SHA256_t* params)
-// {   
-//     uint8_t t0_bit, e_bit, f_bit, g_bit, out_bit;
-//     for (int i = 0; i < 32; i++) {
-
-//         uint8_t e_bit = GETBIT(e, i);
-//         uint8_t f_bit = GETBIT(f, i);
-//         uint8_t g_bit = GETBIT(g, i);
-
-//         uint8_t t0_bit = f_bit ^ g_bit;
-//         uint8_t et0_bit = aux_mpc_AND2(e_bit, t0_bit, tapes, params);
-
-//         ch_bit = et0_bit ^ g_bit;
-//         SETBIT(*ch, i, out_bit);
-//     }
-// }
 
 static void aux_CH_mpc(int pe, int pf, int pg, int pch, shares_t* state_masks, randomTape_t* tapes, paramset_SHA256_t* params)
 {
@@ -478,24 +404,6 @@ static void aux_CH_mpc(int pe, int pf, int pg, int pch, shares_t* state_masks, r
 }
 
 
-// // maj = (a & (b ^ c)) ^ (b & c);
-// void aux_MAJ_mpc(uint32_t a, uint32_t b, uint32_t c, uint32_t* out, randomTape_t* tapes, paramset_SHA256_t* params)
-// {
-//     uint8_t t0_bit, t1_bit, a_bit, b_bit, c_bit, out_bit;
-//     for (int i = 0; i < 32; i++) {
-//         a_bit = GETBIT(a, i);
-//         b_bit = GETBIT(b, i);
-//         c_bit = GETBIT(c, i);
-
-//         t0_bit = a_bit ^ b_bit;
-//         t1_bit = a_bit ^ c_bit; 
-//         out_bit = aux_mpc_AND2(t0_bit, t1_bit, tapes, params);
-//         out_bit = a_bit ^ out_bit;
-//         SETBIT(*out, i, out_bit);
-//     }
-// }
-
-
 // maj = [(a ^ b) & (a ^ c)] ^ a
 static void aux_MAJ_mpc(int pa, int pb, int pc, int pmaj, shares_t* state_masks, randomTape_t* tapes, paramset_SHA256_t* params)
 {
@@ -517,71 +425,6 @@ static void aux_MAJ_mpc(int pa, int pb, int pc, int pmaj, shares_t* state_masks,
     }
 }
 
-// void aux_FULLADDER_mpc(uint8_t a, uint8_t b, uint8_t cin, uint8_t* sum, uint8_t* cout, randomTape_t* tapes, paramset_SHA256_t* params) 
-// {
-//     *sum = cin ^ (a ^ b);
-
-//     if (tapes->pos > 511 && tapes->pos < 512 + 32 * 4) {
-//         printf("\n[AUX222](%d) bit_a = %d  bit_b = %d\n", tapes->pos, a, b);
-//     }
-    
-//     // uint8_t ab = aux_mpc_AND2(a,b, tapes, params);
-//     // uint8_t cin_axorb = aux_mpc_AND2(cin, a^b, tapes, params);
-
-
-//     uint16_t ab = aux_mpc_AND2(a,b, tapes, params);
-//     uint16_t cin_axorb = aux_mpc_AND2(cin, a^b, tapes, params);
-    
-
-//     if (tapes->pos > 511 && tapes->pos < 512 + 32 * 4) {
-            
-//             printf("               ab = %d   cin_axorb = %d \n", ab, cin_axorb);
-//             printf("               cout = %d \n", ab ^ cin_axorb);
-//     }
-
-//     *cout = ab ^ cin_axorb;
-// }
-
-// uint32_t aux_ADD32_mpc(uint32_t a, uint32_t b, randomTape_t* tapes, paramset_SHA256_t* params)
-// {
-//     uint32_t res = 0;
-//     uint8_t sum;
-//     uint8_t cout = 0;
-//     uint8_t cin;
-//     uint8_t bit_a, bit_b;
-
-//     for (int i = 0; i < 32; i++) {
-//         bit_a = GETBIT(a, i);
-//         bit_b = GETBIT(b, i);
-//         cin = cout;
-
-//         aux_FULLADDER_mpc(bit_a, bit_b, cin, &sum, &cout, tapes, params);
-//         SETBIT(res, i, sum);
-//     }
-//     return res;
-// }
-
-// uint32_t aux_ADD32_mpc(uint32_t a, uint32_t b, randomTape_t* tapes, paramset_SHA256_t* params)
-// {
-//     if (tapes->pos > 511 && tapes->pos < 512 + 32*4) {
-//         printf("[AUX](%d) mask_a = %d    mask_b = %d \n", tapes->pos, a, b);
-//     }
-    
-//     uint8_t cin = 0;
-//     uint32_t res = 0;
-//     for (int i = 0; i < 32; i++) {
-//         uint8_t bit_a = GETBIT(a, i);
-//         uint8_t bit_b = GETBIT(b, i);
-
-        
-        
-
-//         uint8_t sum = 0;
-//         aux_FULLADDER_mpc(bit_a, bit_b, cin, &sum, &cin, tapes, params);
-//         SETBIT(res, i, sum);
-//     }
-//     return res;
-// }
 
 static void aux_ADD32_mpc(int pa, int pb, int ps, shares_t* state_masks, randomTape_t* tapes, paramset_SHA256_t* params)
 {
@@ -654,40 +497,9 @@ static void replaceMasks(int p, int pWith, shares_t* state_masks)
 
 // Cf. picnic3-eprint.pdf Section 5.1
 static void computeAuxTapeSHA256(randomTape_t* tapes, uint8_t* inputs, paramset_SHA256_t* params) {
-    // Récupérer les constantes de sha256
-    // uint32_t _hA[8] = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-	// 	0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
+    
 
-    // static const uint32_t k[64] = { 0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
-	// 	0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98,
-	// 	0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe,
-	// 	0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6,
-	// 	0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-	// 	0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3,
-	// 	0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138,
-	// 	0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e,
-	// 	0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3,
-	// 	0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116,
-	// 	0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a,
-	// 	0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814,
-	// 	0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2 };
-
-    // uint8_t x[64];   // 512 bits// maj = (a & (b ^ c)) ^ (b & c);
-// void aux_MAJ_mpc(uint32_t a, uint32_t b, uint32_t c, uint32_t* out, randomTape_t* tapes, paramset_SHA256_t* params)
-// {
-//     uint8_t t0_bit, t1_bit, a_bit, b_bit, c_bit, out_bit;
-//     for (int i = 0; i < 32; i++) {
-//         a_bit = GETBIT(a, i);
-//         b_bit = GETBIT(b, i);
-//         c_bit = GETBIT(c, i);
-
-//         t0_bit = a_bit ^ b_bit;
-//         t1_bit = a_bit ^ c_bit; 
-//         out_bit = aux_mpc_AND2(t0_bit, t1_bit, tapes, params);
-//         out_bit = a_bit ^ out_bit;
-//         SETBIT(*out, i, out_bit);
-//     }
-// }
+    
     shares_t* input_masks = allocateShares(params->inputSizeBits);
     tapesToWords(input_masks, tapes);
     shares_t* state_masks = allocateShares(params->stateSizeBits + 16);
@@ -801,41 +613,33 @@ static void computeAuxTapeSHA256(randomTape_t* tapes, uint8_t* inputs, paramset_
         aux_ADD32_mpc(76, 77, 68, state_masks, tapes, params);
 	}
 
-    // printMask(68, state_masks);
-    // printMask(69, state_masks);
-    // printMask(70, state_masks);
-    // printMask(71, state_masks);
-    // printMask(72, state_masks);
-    // printMask(73, state_masks);
-    // printMask(74, state_masks);
-    // printMask(75, state_masks);
 
 
-    // // _hA[0] = a + _hA[0];
+
+    // _hA[0] = a + _hA[0];
     aux_ADD32_K_mpc(68, 68, state_masks, tapes, params);
 
-    // // _hA[1] = b + _hA[1];
+    // _hA[1] = b + _hA[1];
     aux_ADD32_K_mpc(69, 69, state_masks, tapes, params);
 
-    // // _hA[2] = c + _hA[2];
+    // _hA[2] = c + _hA[2];
     aux_ADD32_K_mpc(70, 70, state_masks, tapes, params);
 
-    // // _hA[3] = d + _hA[3];
+    // _hA[3] = d + _hA[3];
     aux_ADD32_K_mpc(71, 71, state_masks, tapes, params);
 
-    // // _hA[4] = e + _hA[4];
+    // _hA[4] = e + _hA[4];
     aux_ADD32_K_mpc(72, 72, state_masks, tapes, params);
 
-    // // _hA[5] = f + _hA[5];
+    // _hA[5] = f + _hA[5];
     aux_ADD32_K_mpc(73, 73, state_masks, tapes, params);
 
-    // // _hA[6] = g + _hA[6];
+    // _hA[6] = g + _hA[6];
     aux_ADD32_K_mpc(74, 74, state_masks, tapes, params);
 
-    // // _hA[7] = h + _hA[7];
+    // _hA[7] = h + _hA[7];
     aux_ADD32_K_mpc(75, 75, state_masks, tapes, params);
 
-    // Update la N-th (16) avec l'auxiliary information
     tapes->pos = 0;
 }
 
@@ -921,20 +725,11 @@ static void getAuxBits(uint8_t* output, randomTape_t* tapes, paramset_SHA256_t* 
     
     size_t last = params->numMPCParties - 1;
     size_t offset = params->inputSizeBits;
-    size_t pos = 0;                               // REVOIR ÇA
+    size_t pos = 0;
 
     for (uint32_t j = offset; j < offset + 2 * params->andSizeBits; j++) {
         setBit(output, pos++, getBit(tapes->tape[last], j));
     }
-
-
-
-    // for(uint32_t j = 0; j < params->numRounds; j++) {
-    //     for(size_t i = 0; i < n; i++) {
-    //         setBit(output, pos++, getBit(tapes->tape[last], n + n*2*j  + i));
-    //     }
-    // }
-
 }
 
 
@@ -943,22 +738,11 @@ static void setAuxBits(randomTape_t* tapes, uint8_t* input, paramset_SHA256_t* p
 {
     size_t last = params->numMPCParties - 1;
     size_t offset = params->inputSizeBits;
-    size_t pos = 0;                              // REVOIR ÇA
+    size_t pos = 0;
 
     for (uint32_t j = offset; j < offset + 2 * params->andSizeBits; j++) {
         setBit(tapes->tape[last], j, getBit(input, pos++));
     }
-
-
-    // size_t last = params->numMPCParties - 1;
-    // size_t pos = 0;
-    // size_t n = params->stateSizeBits;
-
-    // for(uint32_t j = 0; j < params->numRounds; j++) {
-    //     for(size_t i = 0; i < n; i++) {
-    //         setBit(tapes->tape[last], n + n*2*j  + i, getBit(input, pos++));
-    //     }
-    // }
 }
 
 
@@ -986,43 +770,6 @@ static uint8_t mpc_AND(uint8_t a, uint8_t b, uint16_t mask_a, uint16_t mask_b, u
 }
 
 
-// static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_SHA256_t* params)
-// {
-//     uint8_t cout = 0; 
-
-//     for (int i = 0; i < 32; i++) {
-//         uint8_t a_bit = GETBIT(a, i);
-//         uint16_t mask_a = state_masks->shares[3*i];
-
-//         uint8_t b_bit = GETBIT(b, i);
-//         uint16_t mask_b = state_masks->shares[3*i+1];
-
-//         uint8_t cin = cout;
-//         uint16_t mask_cin = state_masks->shares[3*i+2];
-
-//         uint8_t sum_bit = cin ^ (a_bit ^ b_bit);
-//         uint16_t mask_sum = mask_cin ^ (mask_a ^ mask_b);
-//         SETBIT(*sum, i, sum_bit);
-//         state_masks->shares[3*i] = mask_sum; // On remplace les state masks de a par ceux de sum
-
-//         uint16_t mask_gamma_ab; // qu'on va chercher une tape plus loin
-//         uint8_t ab = mpc_AND(a, b, mask_a, mask_b, &mask_gamma_ab, tapes, msgs, params);
-
-//         uint16_t mask_gamma_cin_axorb;
-//         uint8_t cin_axorb = mpc_AND(cin, a^b, mask_cin, mask_a ^ mask_b, &mask_gamma_cin_axorb, tapes, msgs, params);
-
-//         cout = ab ^ cin_axorb;
-//         if (i < 31) {
-//             // Le masque du cin suivant est celui du cout juste calculé
-//             state_masks->shares[3*(i+1)+2] = mask_gamma_ab ^ mask_gamma_cin_axorb;
-//         }         
-//     }
-// }
-
-
-
-
-
 static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, int pa, int pb, int ps, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_SHA256_t* params)
 {
     uint8_t cin = 0;
@@ -1037,10 +784,6 @@ static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, int pa, int pb, int
         uint8_t b_bit = GETBIT(b, i);
         uint16_t mask_b = getMask(pb, 31 - i, state_masks);
 
-        // if (tapes->pos > 639 && tapes->pos < 640 + 32*4) {
-        //     printf("[SIM](%d) MASK_A = %d   MASK_B = %d \n", tapes->pos, mask_a, mask_b);
-        // }
-
         uint8_t sum_bit = cin ^ (a_bit ^ b_bit);
         uint16_t mask_sum = mask_cin ^ (mask_a ^ mask_b);
         SETBIT(*sum, i, sum_bit);
@@ -1049,23 +792,15 @@ static void mpc_ADD32(uint32_t a, uint32_t b, uint32_t* sum, int pa, int pb, int
         uint16_t mask_gamma_ab;
         uint8_t ab = mpc_AND(a_bit, b_bit, mask_a, mask_b, &mask_gamma_ab, tapes, msgs, params);        
 
-        // On doit avoir REEL(ab) = mask ^ MASQUÉ(ab), ce n'est pas le cas
-
         uint8_t a_xor_b = a_bit ^ b_bit;
         uint16_t mask_a_xor_b = mask_a ^ mask_b;
 
         uint16_t mask_gamma_cin_axorb;
 
-        // if (tapes-> pos < 570) printf("             ab[%d] = %d   cin[%d] = %d \n", tapes->pos, ab, tapes->pos, cin);
         uint8_t cin_axorb = mpc_AND(cin, a_xor_b, mask_cin, mask_a_xor_b, &mask_gamma_cin_axorb, tapes, msgs, params);
 
         cin = ab ^ cin_axorb;
-        mask_cin = mask_gamma_ab ^ mask_gamma_cin_axorb;
-
-        // if (tapes->pos > 47232 && tapes->pos < 47233 + 32*4) {
-        //     printf("(%d):  a_bit = %d  b_bit = %d  mask_a = %d  mask_b = %d  ab = %d  cin_axorb = %d\n", i, a_bit, b_bit, mask_a, mask_b, ab, cin_axorb);
-        // }
-        
+        mask_cin = mask_gamma_ab ^ mask_gamma_cin_axorb;        
     }
 
 }
@@ -1094,38 +829,10 @@ static void mpc_ADD32_K(uint32_t a, uint32_t b, uint32_t *sum, int pa, int ps, s
         uint16_t mask_gamma_cin_axorb;
         uint8_t cin_axorb = mpc_AND(cin, a_bit ^ b_bit, mask_cin, mask_a ^ mask_b, &mask_gamma_cin_axorb, tapes, msgs, params);
 
-        // if (tapes->pos > 84479 && tapes->pos < 84480 + 32*4 ) {
-        //     printf("(SIM)[%d]  MASK_A = %d   MASK_B = %d   MASK_AB = %d  MASK_CINAXORB = %d\n", tapes->pos, mask_a, mask_b, mask_gamma_ab, mask_gamma_cin_axorb);
-        // }
-
         cin = ab ^ cin_axorb;
         mask_cin = mask_gamma_ab ^ mask_gamma_cin_axorb;
     }
 }
-
-// static void mpc_CH(uint32_t e, uint32_t f, uint32_t g, uint32_t* ch, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_SHA256_t* params)
-// {
-//     for (int i = 0; i < 32; i++) {
-//         uint8_t e_bit = GETBIT(e, i);
-//         uint16_t mask_e = state_masks->shares[3*i]; 
-
-//         uint8_t f_bit = GETBIT(f, i);
-//         uint16_t mask_f = state_masks->shares[3*i+1];
-
-//         uint8_t g_bit = GETBIT(g, i);
-//         uint16_t mask_g = state_masks->shares[3*i+2];
-
-//         uint8_t t0_bit = f_bit ^ g_bit;
-
-//         uint16_t mask_gamma_et0;
-//         t0_bit = mpc_AND(e_bit, t0_bit, mask_e, mask_f ^ mask_g, &mask_gamma_et0, tapes, msgs, params);
-
-//         uint8_t ch_bit = t0_bit ^ g_bit;
-//         SETBIT(*ch, i, ch_bit);
-//         uint16_t mask_ch = mask_gamma_et0 ^ mask_g;
-//         state_masks->shares[3*i] = mask_ch; // On remplace les state masks de e par ceux de ch
-//     }
-// }
 
 
 // ch = [e & (f^g)] ^ g
@@ -1144,16 +851,8 @@ static void mpc_CH(uint32_t e, uint32_t f, uint32_t g, uint32_t* ch, int pe, int
         uint8_t t0_bit = f_bit ^ g_bit;
         uint16_t mask_t0 = mask_f ^ mask_g;
         
-        // if (tapes->pos > 20991 && tapes->pos < 20992 + 32*4) {
-            // printf("[MPC_CH](%d)  ", tapes->pos);
-        // }
-        
         uint16_t mask_gamma_et0;
         uint8_t et0_bit = mpc_AND(e_bit, t0_bit, mask_e, mask_t0, &mask_gamma_et0, tapes, msgs, params);
-
-        // if (tapes->pos > 20991 && tapes->pos < 20992 + 32*4) {
-        //     printf("          mask_e = %d  mask_f = %d  mask_g = %d  mask_t0 = %d  mask_et0 = %d \n", mask_e, mask_f, mask_g, mask_t0, mask_gamma_et0);
-        // }
 
         uint8_t ch_bit = et0_bit ^ g_bit;
         uint16_t mask_ch = mask_gamma_et0 ^ mask_g;
@@ -1162,32 +861,6 @@ static void mpc_CH(uint32_t e, uint32_t f, uint32_t g, uint32_t* ch, int pe, int
         setMask(pch, 31 - i, mask_ch, state_masks);         
     }
 }
-
-// static void mpc_MAJ(uint32_t a, uint32_t b, uint32_t c, uint32_t* maj, shares_t* state_masks, randomTape_t* tapes, msgs_t* msgs, paramset_SHA256_t* params)
-// {
-//     for (int i = 0; i < 32; i++) {
-//         uint8_t a_bit = GETBIT(a, i);
-//         uint16_t mask_a = state_masks->shares[3*i];
-
-//         uint8_t b_bit = GETBIT(b, i);
-//         uint16_t mask_b = state_masks->shares[3*i+1];
-
-//         uint8_t c_bit = GETBIT(c, i);
-//         uint16_t mask_c = state_masks->shares[3*i+2];
-
-//         uint8_t t0_bit = a_bit ^ b_bit;
-//         uint8_t t1_bit = a_bit ^ c_bit;
-
-//         uint16_t mask_gamma_t0t1;
-//         uint8_t maj_bit = mpc_AND(t0_bit, t1_bit, mask_a ^ mask_b, mask_a ^ mask_c, &mask_gamma_t0t1, tapes, msgs, params);
-//         maj_bit ^= a_bit;
-
-//         SETBIT(*maj, i, maj_bit);
-
-//         uint16_t mask_maj = mask_a ^ mask_gamma_t0t1;
-//         state_masks->shares[3*i] = mask_maj; // On remplace le state mask de a par celui de maj
-//     }
-// }
 
 
 // maj = (a ^ b)&(a ^ c)  ^ a
@@ -1213,34 +886,8 @@ static void mpc_MAJ(uint32_t a, uint32_t b, uint32_t c, uint32_t* maj, int pa, i
 
         SETBIT(*maj, i, maj_bit);
         setMask(pmaj, 31 - i, mask_maj, state_masks);
-
-        // if (tapes->pos > 19519 && tapes->pos < 19520 + 32*4) {
-        //     printf("[MPC_MAJ](%d)   mask_a = %d   mask_b = %d   mask_c = %d   mask_gamma_t0t1 = %d   maj_bit = %d\n", tapes->pos, mask_a, mask_b, mask_c, mask_gamma_t0t1, maj_bit);
-        // }
     }
 }
-
-// static void loadFirst16WMasks(shares_t* mask_shares, shares_t* key_masks)
-// {
-//     for (int i = 0; i < 16; i++) {
-//         for (int j = 0; j < 32; j++) {
-//             mask_shares->shares[32*i + j] = key_masks->shares[32*i + j];
-//         }
-//     }
-// }
-
-
-
-// uint32_t reconstructWordMask(int p, shares_t* state_masks)
-// {
-//     uint32_t res;
-//     uint16_t masks[32];
-//     getMasks(p, masks, state_masks);
-//     for (int i = 0; i < 32; i++) {
-//         SETBIT(res, i, (uint8_t)parity16(masks[i]));
-//     }
-//     return res;
-// }
 
 uint32_t reconstructWordMask(int p, shares_t* state_masks)
 {
@@ -1248,27 +895,10 @@ uint32_t reconstructWordMask(int p, shares_t* state_masks)
     uint16_t shares[32];
     for (int i = 0; i < 32; i++) {
         shares[i] = state_masks->shares[32*p + i];
-        SETBIT(mask, 31 - i, parity16(shares[i]));      // HOTFIX, bien tout mettre dans le bon sens
+        SETBIT(mask, 31 - i, parity16(shares[i]));
     }
     return mask;
 }
-
-// static void reconstructWordMask2(uint32_t* output, shares_t* shares, int p)
-// {
-//     for (size_t i = 0; i < 32; i++) {
-//         setBitInWordArray(output, i, parity16(shares->shares[32*p + i]));
-//     } 
-// }
-
-// AVEC RECONSTRUCTWORDMASK3 ON A ROTATED = S0
-
-
-// static void reconstructInputShares2(uint32_t* output, shares_t* shares)
-// {
-//     for (size_t i = 0; i < shares->numWords; i++) {
-//         setBitSO(output, i, (uint8_t)parity16(shares->shares[i]));
-//     }
-// }
 
 int corr[16] = {7, 6, 5, 4, 3, 2, 1, 0, 15, 14, 13, 12, 11, 10, 9, 8};
 
@@ -1276,7 +906,7 @@ static void loadOutputShare(shares_t* state_masks, int p, msgs_t* msgs)
 {
     for (int i = 0; i < 32; i++) {
         uint8_t share = getBit(msgs->msgs[msgs->unopened], msgs->pos + i);
-        SETBIT(state_masks->shares[32*p +i], corr[msgs->unopened], share);  //changer ça
+        SETBIT(state_masks->shares[32*p +i], corr[msgs->unopened], share);
     }
     msgs->pos += 32;
 }
@@ -1338,12 +968,6 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
     loadInputMasks(state_masks, input_masks);
 	for (i = 0; i < 16; i++) {
         w[i] = maskedKey[i];
-
-        // if (true) {
-        //     uint32_t* wmask = malloc(sizeof(uint32_t));
-        //     reconstructWordMask3(wmask, state_masks, i);
-        //     printf("[SIM] w[%d] = %d\n", i, *wmask ^ w[i]);
-        // }
 	}
 
     
@@ -1450,7 +1074,6 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
 
 
     if (msgs->unopened >= 0) {
-        printf("DEBUT LOADOUTPUTSHARES\n");
         loadOutputShare(state_masks, 68, msgs);
         loadOutputShare(state_masks, 69, msgs);
         loadOutputShare(state_masks, 70, msgs);
@@ -1459,7 +1082,6 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
         loadOutputShare(state_masks, 73, msgs);
         loadOutputShare(state_masks, 74, msgs);
         loadOutputShare(state_masks, 75, msgs);
-        printf("FIN LOADOUTPUTSHARES \n");
     }
     
     broadcastOutputShares(state_masks, msgs, params);
@@ -1483,10 +1105,6 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
     reconstructWordMask3(gmask, state_masks, 74);
     reconstructWordMask3(hmask, state_masks, 75);
 
-    printf("amask = %d  bmask = %d  cmask = %d  dmask = %d  emask = %d  fmask = %d  gmask = %d  hmask = %d\n", *amask, *bmask, *cmask, *dmask, *emask, *fmask, *gmask, *hmask);
-
-    // printf("[SIM] a = %d   b = %d   c = %d   d = %d   e = %d   f = %d   g = %d   h = %d\n", *amask ^ a, *bmask ^ b, *cmask ^ c, *dmask ^ d, *emask ^ e, *fmask ^ f, *gmask ^ g, *hmask ^ h);
-    
 
     // Ouput de 256 bits : out_h0 | out_h1 | out_h2 | .. | out_h7
     uint32_t out_hA[8];
@@ -1636,14 +1254,6 @@ static void HCP(uint8_t* challengeHash, uint16_t* challengeC, uint16_t* challeng
     }
 }
 
-// static void reconstructShares(uint32_t* output, shares_t* shares)
-// {
-//     for (size_t i = 0; i < shares->numWords; i++) {
-//         setBitInWordArray(output, i, parity16(shares->shares[i]));
-//     }
-// }
-
-
 static uint16_t* getMissingLeavesList(uint16_t* challengeC, paramset_SHA256_t* params)
 {
     size_t missingLeavesSize = params->numMPCRounds - params->numOpenedRounds;
@@ -1788,7 +1398,7 @@ int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_SHA25
             memcpy(msgs[t].msgs[unopened], sig->proofs[t].msgs, params->andSizeBytes);
             msgs[t].unopened = unopened;
 
-            printf("UNOPENED: %ld\n", unopened);
+            // printf("UNOPENED: %ld\n", unopened);
 
             tapesToWords(input_masks, &tapes[t]);
 
@@ -1862,14 +1472,6 @@ static void computeSaltAndRootSeed(uint8_t* saltAndRoot, size_t saltAndRootLengt
     HashSqueeze(&ctx, saltAndRoot, saltAndRootLength);
 }
 
-// static void printMaskedKey(uint32_t* maskedKey) {
-//     for (int i = 0; i < 16; i++) {
-//         printf("%d", maskedKey[i]);
-//         fflush(stdout);
-//     }
-// }
-
-
 static void reconstructInputMasks(uint32_t* out, shares_t* input_masks)
 {
     for (size_t i = 0; i < 16; i++) {
@@ -1877,7 +1479,6 @@ static void reconstructInputMasks(uint32_t* out, shares_t* input_masks)
     }
 }
 
-// PARTIE INTERESSANTE 19/05
 // spec-v3.0.pdf Section 7.1
 int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, paramset_SHA256_t* params)
 {
@@ -1921,7 +1522,6 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
 
     // [  4.c  ]
     for (size_t t = 0; t < params->numMPCRounds; t++) {
-        // computeAuxTapeSHA256(&tapes[t], inputs[t], params);
         computeAuxTapeSHA256(&tapes[t], NULL, params);
     }
 
@@ -1947,26 +1547,6 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
 
         uint32_t* maskedKey = malloc (16 * sizeof(uint32_t));
         uint32_t* inputMask = malloc (16 * sizeof(uint32_t));
-        // uint32_t* maskedKey = malloc (params->inputSizeBits); 
-
-
-        // TRICHE
-        witness[0] = 1633837924;
-        witness[1] = 1701209960;
-        witness[2] = 2147483648;
-        witness[3] = 0;
-        witness[4] = 0;
-        witness[5] = 0;
-        witness[6] = 0;
-        witness[7] = 0;
-        witness[8] = 0;
-        witness[9] = 0;
-        witness[10] = 0;
-        witness[11] = 0;
-        witness[12] = 0;
-        witness[13] = 0;
-        witness[14] = 0;
-        witness[15] = 64;
 
         // [  4.e  ]
         tapesToWords(input_masks, &tapes[t]);
@@ -1978,10 +1558,6 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
 
         memcpy(inputs[t], maskedKey, 16*sizeof(uint32_t));
 
-        // printf("[SIGN](%ld) InputMasks: ", t);
-        // printInputMasks(input_masks);
-        // printf("\n");
-
         // [  4.f  ]
         int rv = simulateOnlineSHA256(maskedKey, &tapes[t], input_masks, state_masks, &msgs[t], publicHash, params);
         if (rv != 0) {
@@ -1990,7 +1566,6 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
             goto Exit;
         }
     }
-    // freeShares(input_masks)
     freeShares(state_masks);
 
 
@@ -2053,12 +1628,6 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
             }
 
             memcpy(proofs[t].input, inputs[t], 16 * sizeof(uint32_t));
-            
-            // printf("\nMsgs(%ld)[%d]: ", t, challengeP[P_index]);
-            // printMsgs(msgs[t].msgs[challengeP[P_index]]);
-            // printf("\n");
-
-
             memcpy(proofs[t].msgs, msgs[t].msgs[challengeP[P_index]], params->andSizeBytes);
             memcpy(proofs[t].C, C[t].hashes[challengeP[P_index]], params->digestSizeBytes);
         }

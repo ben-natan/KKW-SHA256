@@ -8,7 +8,7 @@
 #define WORD_SIZE_BITS 32
 
 
-int projet_sign(uint32_t* witness)
+int projet_sign_and_verify(uint32_t* witness)
 {
     int numWitBytes = 8;
     int numWitBits = 8*numWitBytes;
@@ -18,7 +18,6 @@ int projet_sign(uint32_t* witness)
     sha256(publicHash, numWitBits);
 
     printHex("publicHash", (uint8_t*)publicHash, 32);
-    printf("Wt; %s", (char*)witness);
 
     // paramset_t* params = malloc(60);
     paramset_SHA256_t* params = (paramset_SHA256_t*)malloc(sizeof(paramset_SHA256_t));
@@ -27,7 +26,6 @@ int projet_sign(uint32_t* witness)
     params->numOpenedRounds = 2;
     params->numMPCParties = 16;
     params->digestSizeBytes = 32;
-    // params->andSizeBytes = 5312; // d'après calcul sur feuille
     params->andSizeBytes = 5824; 
     params->stateSizeBytes = 4;
     params->seedSizeBytes = 1;
@@ -50,11 +48,13 @@ int projet_sign(uint32_t* witness)
     sig->challengeHash = (uint8_t*)malloc(params->digestSizeBytes);
     sig->proofs = calloc(params->numMPCRounds, sizeof(proof2_t));
 
-    printf("sign_picnic3: \n");
-    fflush(stdout);
-
+    printf("[SIGNATURE]: \n");
     int ret = sign_picnic3(witness, (uint32_t*)publicHash, sig, params);
+    printf("ret: %d\n\n", ret);
 
+
+    printf("[VERIFICATION]: \n");
     ret = verify_picnic3(sig, (uint32_t*)publicHash, params);
+    printf("ret: %d\n\n", ret);
     return ret;
 }
