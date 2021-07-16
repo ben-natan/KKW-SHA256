@@ -25,7 +25,7 @@
 #define MIN(a,b)            (((a) < (b)) ? (a) : (b))
 
 // #define MAX_AUX_BYTES ((LOWMC_MAX_AND_GATES + LOWMC_MAX_KEY_BITS) / 8 + 1)
-#define MAX_AUX_BYTES 93696  + 100 //pour être tranquille
+#define MAX_AUX_BYTES 93696 
 
 #define GETBIT(x, i) (((x) >> (i)) & 0x01)
 #define SETBIT(x, i, b)   x= (b)&1 ? (x)|(1 << (i)) : (x)&(~(1 << (i)))
