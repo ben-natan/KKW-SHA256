@@ -92,7 +92,7 @@ void allocateProof2(proof2_t* proof, paramset_SHA256_t* params)
     proof->seedInfoLen = 0;
     proof->C = malloc(params->digestSizeBytes);
     proof->input = calloc(1, 16 * sizeof(uint32_t));
-    proof->aux = calloc(1, params->andSizeBytes);
+    proof->aux = calloc(1, 2 * params->andSizeBits / 8);
     proof->msgs = calloc(1, params->andSizeBytes);
 
 }
