@@ -1465,8 +1465,8 @@ static void computeSaltAndRootSeed(uint8_t* saltAndRoot, size_t saltAndRootLengt
     HashInstance ctx;
     
     HashInit(&ctx, params, HASH_PREFIX_NONE);
-    HashUpdate(&ctx, (uint8_t*)witness, params->inputSizeBits / 8);
-    HashUpdate(&ctx, (uint8_t*)publicHash, 32);
+    HashUpdate(&ctx, (uint8_t*)witness, params->inputSizeBits);  // /8 ?
+    HashUpdate(&ctx, (uint8_t*)publicHash, 256);  //  /8 ?
     HashUpdateIntLE(&ctx, params->stateSizeBits);   // ?
     HashFinal(&ctx);
     HashSqueeze(&ctx, saltAndRoot, saltAndRootLength);

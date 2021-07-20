@@ -22,13 +22,13 @@ int projet_sign_and_verify(uint32_t* witness)
     // paramset_t* params = malloc(60);
     paramset_SHA256_t* params = (paramset_SHA256_t*)malloc(sizeof(paramset_SHA256_t));
     params->stateSizeBits = 83 * 32;
-    params->numMPCRounds = 3;
-    params->numOpenedRounds = 2;
+    params->numMPCRounds = 352;  // M
+    params->numOpenedRounds = 33;  // Tau
     params->numMPCParties = 16;
-    params->digestSizeBytes = 32;
+    params->digestSizeBytes = 64;  // pour rho = 128
     params->andSizeBytes = 5824; 
     params->stateSizeBytes = 4;
-    params->seedSizeBytes = 1;
+    params->seedSizeBytes = 2;  // pour rho = 128 : numBytes(2 * 128)
     params->stateSizeWords = (params->stateSizeBits + WORD_SIZE_BITS - 1)/ WORD_SIZE_BITS;
     params->transform = 255;
     params->saltSizeBytes = 32; /* same for all parameter sets */
