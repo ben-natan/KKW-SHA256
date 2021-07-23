@@ -463,7 +463,7 @@ static void replaceMasks(int p, int pWith, shares_t* state_masks)
 
 
 // Cf. picnic3-eprint.pdf Section 5.1
-static void computeAuxTapeSHA256(randomTape_t* tapes, uint8_t* inputs, paramset_SHA256_t* params) {
+static void computeAuxTapeSHA256(randomTape_t* tapes, paramset_SHA256_t* params) {
     
 
     
@@ -471,11 +471,6 @@ static void computeAuxTapeSHA256(randomTape_t* tapes, uint8_t* inputs, paramset_
     tapesToWords(input_masks, tapes);
     shares_t* state_masks = allocateShares(params->stateSizeBits + 16);
     loadInputMasks(state_masks, input_masks);
-
-    if (inputs != NULL) {
-        // memcpy(inputs, x, params->inputSizeBits / 8);
-        printf("retirer ça apres");
-    }
     
 
     // uint32_t w[64];
@@ -712,13 +707,6 @@ static void setAuxBits(randomTape_t* tapes, uint8_t* input, paramset_SHA256_t* p
     }
 }
 
-// static void printEndOfMsgs(uint8_t* msgs) {
-//     for (size_t i = 0; i < 32*2; i++) {
-//         uint8_t bit = getBit(msgs, 42496 - 32 * 2 +i);
-//         printf("%d", bit);
-//     } printf("\n");
-// }
-
 
 // picnic3-eprint.pdf page20    
 static uint8_t mpc_AND(uint8_t a, uint8_t b, uint16_t mask_a, uint16_t mask_b, uint16_t* mask_gamma, randomTape_t* tapes, msgs_t* msgs, paramset_SHA256_t* params)
@@ -895,16 +883,6 @@ static void broadcastOutputShares(shares_t* shares, msgs_t* msgs, paramset_SHA25
     }
 }
 
-// static void printFirstMsg(msgs_t* msgs, int num)
-// {
-//     int pos = 42496 - 1 * 32;
-//     for (int i = 0; i < 32; i ++) {
-//         uint8_t bit = getBit(msgs->msgs[num], pos + i);
-//         printf("%d", bit);
-//     }   printf("\n");
-// }
-
-
 
 static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares_t* input_masks, shares_t* state_masks, 
                            msgs_t* msgs, const uint32_t* publicHash, paramset_SHA256_t* params)
@@ -933,21 +911,14 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
     char finalHash[32];
 
 
-    
-    // La position des tapes est déjà avancée
-
-    // Ici, on a déjà tapesToWords dans state_masks donc les masques initiaux sont chargés, et on a encore de la tape à parcourir pour les portes AND
-    // les state_masks de x sont dans w0 à w15
-
     /* state_masks :
-            w0 à w63, s0, s1, w16_s0, w7_s1, a, b, c, d, e, f, g, h, temp1, temp2, maj, ch, h_s1, ch_k, chk_w; 
+            w0 à w63, s0, s1, w16_s0, w7_s1, a, b, c, d, e, f, g, h, temp1, temp2, maj, ch, h_s1, ch_k, chk_w; (tous de 32 bits)
     */
 
     uint32_t w[64];
 
     int i;
 
-    // VÉRIFIÉ
     loadInputMasks(state_masks, input_masks);
 	for (i = 0; i < 16; i++) {
         w[i] = maskedKey[i];
@@ -1090,7 +1061,6 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
     reconstructWordMask3(hmask, state_masks, 75);
 
 
-    // Ouput de 256 bits : out_h0 | out_h1 | out_h2 | .. | out_h7
     uint32_t out_hA[8];
     out_hA[0] = *amask ^ a;
     out_hA[1] = *bmask ^ b;
@@ -1108,9 +1078,6 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
 		finalHash[i * 4 + 2] = (out_hA[i] >> 8);
 		finalHash[i * 4 + 3] = out_hA[i];
 	}
-
-    // printHex("Hash calculé", (uint8_t*)finalHash, 32);
-    // printf("\n\n\n");
 
     if (memcmp(finalHash, publicHash, params->stateSizeBytes) != 0) {
         ret = -1;
@@ -1323,7 +1290,7 @@ int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_SHA25
 
         if (!contains(sig->challengeC, params->numOpenedRounds, t)) {
             /* We're given iSeed, have expanded the seeds, compute aux from scratch so we can comnpte Com[t] */
-            computeAuxTapeSHA256(&tapes[t], NULL, params);
+            computeAuxTapeSHA256(&tapes[t], params);
             for (size_t j = 0; j < last; j++) {
                 commit(C[t].hashes[j], getLeaf(seeds[t], j), NULL, sig->salt, t, j, params);
             }
@@ -1517,12 +1484,11 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
 
 
     /* Preprocessing; compute aux tape for the N-th player, for each parallel rep */
-    // inputs_t inputs = allocateInputs(params);   !!!
     uint8_t auxBits[MAX_AUX_BYTES] = {0,};
 
     // [  4.c  ]
     for (size_t t = 0; t < params->numMPCRounds; t++) {
-        computeAuxTapeSHA256(&tapes[t], NULL, params);
+        computeAuxTapeSHA256(&tapes[t], params);
     }
 
     /* Commit to seeds and aux bits */ 
@@ -1657,8 +1623,6 @@ Exit:
     freeMsgs(msgs);
 
     return ret;
-
-
 }
 
 int deserializeSignature2(signature2_t* sig, const uint8_t* sigBytes, size_t sigBytesLen, paramset_SHA256_t* params)

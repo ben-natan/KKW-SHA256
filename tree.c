@@ -571,7 +571,7 @@ int verifyMerkleTree(tree_t* tree, /* uint16_t* missingLeaves, size_t missingLea
                 return -1;  /* A leaf was assigned from the prover for a node we've recomputed */
             }
 
-            if (leafData[i] != NULL) {       ///          PAS LE BON DATA 
+            if (leafData[i] != NULL) {
                 memcpy(tree->nodes[firstLeaf + i], leafData[i], tree->dataSize);
                 tree->haveNode[firstLeaf + i] = 1;
             }
