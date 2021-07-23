@@ -17,13 +17,13 @@ int projet_sign_and_verify(uint32_t* witness)
 
     sha256(publicHash, numWitBits);
 
-    printHex("publicHash", (uint8_t*)publicHash, 32);
+    // printHex("publicHash", (uint8_t*)publicHash, 32);
 
     // paramset_t* params = malloc(60);
     paramset_SHA256_t* params = (paramset_SHA256_t*)malloc(sizeof(paramset_SHA256_t));
     params->stateSizeBits = 83 * 32;
-    params->numMPCRounds = 352;  // M
-    params->numOpenedRounds = 33;  // Tau
+    params->numMPCRounds = 4;  // M 352
+    params->numOpenedRounds = 2;  // Tau 33
     params->numMPCParties = 16;
     params->digestSizeBytes = 64;  // pour rho = 128
     params->andSizeBytes = 5824; 
@@ -48,13 +48,15 @@ int projet_sign_and_verify(uint32_t* witness)
     sig->challengeHash = (uint8_t*)malloc(params->digestSizeBytes);
     sig->proofs = calloc(params->numMPCRounds, sizeof(proof2_t));
 
-    printf("[SIGNATURE]: \n");
+    // printf("[SIGNATURE]: \n");
     int ret = sign_picnic3(witness, (uint32_t*)publicHash, sig, params);
-    printf("ret: %d\n\n", ret);
+    // printf("ret: %d\n\n", ret);
 
 
-    printf("[VERIFICATION]: \n");
+    // printf("[VERIFICATION]: \n");
     ret = verify_picnic3(sig, (uint32_t*)publicHash, params);
-    printf("ret: %d\n\n", ret);
+    // printf("ret: %d\n\n", ret);
+
+    printf("%d", ret);
     return ret;
 }

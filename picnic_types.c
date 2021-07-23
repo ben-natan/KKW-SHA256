@@ -64,17 +64,6 @@ void allocateRandomTape(randomTape_t* tape, paramset_SHA256_t* params)
     tape->pos = 0;
 }
 
-// void allocateRandomTape2(randomTape_t* tape, paramset_SHA256_t* params)
-// {
-//     tape->nTapes = params->numMPCParties;
-//     tape->tape = malloc(tape->nTapes * sizeof(uint8_t*));
-//     size_t tapeSizeBytes = getTapeSizeBytes(params);
-
-//     for (size_t i = 0; i < tape->nTapes; i++) {
-//         tape->tape[i] = calloc(1, tapeSizeBytes);
-//     }
-//     tape->pos = 0;
-// }
 
 void freeRandomTape(randomTape_t* tape)
 {
@@ -105,53 +94,6 @@ void freeProof2(proof2_t* proof)
     free(proof->msgs);
 }
 
-// void allocateProof(proof_t* proof, paramset_SHA256_t* params)
-// {
-//     proof->seed1 = malloc(params->seedSizeBytes);
-//     proof->seed2 = malloc(params->seedSizeBytes);
-//     proof->inputShare = malloc(params->stateSizeBytes);
-//     proof->communicatedBits = malloc(params->andSizeBytes);
-//     proof->view3Commitment = malloc(params->digestSizeBytes);
-//     if (params->UnruhGWithInputBytes > 0) {
-//         proof->view3UnruhG = malloc(params->UnruhGWithInputBytes);
-//     }
-//     else {
-//         proof->view3UnruhG = NULL;
-//     }
-// }
-
-// void freeProof(proof_t* proof)
-// {
-//     free(proof->seed1);
-//     free(proof->seed2);
-//     free(proof->inputShare);
-//     free(proof->communicatedBits);
-//     free(proof->view3Commitment);
-//     free(proof->view3UnruhG);
-// }
-
-// void allocateSignature(signature_t* sig, paramset_SHA256_t* params)
-// {
-//     sig->proofs = (proof_t*)malloc(params->numMPCRounds * sizeof(proof_t));
-
-//     for (size_t i = 0; i < params->numMPCRounds; i++) {
-//         allocateProof(&(sig->proofs[i]), params);
-//     }
-
-//     sig->challengeBits = (uint8_t*)malloc(numBytes(2 * params->numMPCRounds));
-//     sig->salt = (uint8_t*)malloc(params->saltSizeBytes);
-// }
-
-// void freeSignature(signature_t* sig, paramset_SHA256_t* params)
-// {
-//     for (size_t i = 0; i < params->numMPCRounds; i++) {
-//         freeProof(&(sig->proofs[i]));
-//     }
-
-//     free(sig->proofs);
-//     free(sig->challengeBits);
-//     free(sig->salt);
-// }
 
 void allocateSignature2(signature2_t* sig, paramset_SHA256_t* params)
 {
@@ -322,7 +264,7 @@ void freeInputs(inputs_t inputs)
 msgs_t* allocateMsgs(paramset_SHA256_t* params)
 {
     msgs_t* msgs = malloc(params->numMPCRounds * sizeof(msgs_t));
-    size_t msgsSize = params->andSizeBytes;
+    size_t msgsSize = params->andSizeBytes + 500;
     uint8_t* slab = calloc(1, params->numMPCRounds * (params->numMPCParties * msgsSize +
                                                       params->numMPCParties * sizeof(uint8_t*)));
 

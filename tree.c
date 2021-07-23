@@ -21,6 +21,16 @@
 #include "picnic3_impl.h"
 #include "tree.h"
 
+
+void printBits(uint8_t* bitstring, int length) {
+    printf("\n");
+    for (int i = 0; i < length; i++) {
+        uint8_t bit = getBit(bitstring, i);
+        printf("%d", bit);
+    }
+    printf("\n");
+}
+
 static int contains(size_t* list, size_t len, size_t value)
 {
     for (size_t i = 0; i < len; i++) {
@@ -394,6 +404,7 @@ static void computeParentHash(tree_t* tree, size_t child, uint8_t* salt, paramse
     HashUpdateIntLE(&ctx, (uint16_t)parent);
     HashFinal(&ctx);
     HashSqueeze(&ctx, tree->nodes[parent], params->digestSizeBytes);
+
     tree->haveNode[parent] = 1;
 }
 
@@ -533,6 +544,7 @@ int addMerkleNodes(tree_t* tree, uint16_t* missingLeaves, size_t missingLeavesSi
         tree->haveNode[revealed[i]] = 1;
     }
 
+
     if (intLen != 0) {
         ret = -1;
         goto Exit;
@@ -559,7 +571,7 @@ int verifyMerkleTree(tree_t* tree, /* uint16_t* missingLeaves, size_t missingLea
                 return -1;  /* A leaf was assigned from the prover for a node we've recomputed */
             }
 
-            if (leafData[i] != NULL) {
+            if (leafData[i] != NULL) {       ///          PAS LE BON DATA 
                 memcpy(tree->nodes[firstLeaf + i], leafData[i], tree->dataSize);
                 tree->haveNode[firstLeaf + i] = 1;
             }

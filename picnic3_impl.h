@@ -93,6 +93,7 @@ int serializeSignature2(const signature2_t* sig, uint8_t* sigBytes, size_t sigBy
 /* Returns EXIT_SUCCESS on success or EXIT_FAILURE on error */
 int deserializeSignature2(signature2_t* sig, const uint8_t* sigBytes, size_t sigBytesLen, paramset_SHA256_t* params);
 
+uint8_t getBit(const uint8_t* array, uint32_t bitNumber);
 
 uint32_t ceil_log2(uint32_t x);
 void printHex(const char* s, const uint8_t* data, size_t len);

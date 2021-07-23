@@ -16,11 +16,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <sys/random.h>
 
 #include "picnic3_impl.h"
 #include "picnic_types.h"
 #include "hash.h"
 #include "tree.h"
+
 
 #define MIN(a,b)            (((a) < (b)) ? (a) : (b))
 
@@ -386,17 +388,9 @@ static void aux_CH_mpc(int pe, int pf, int pg, int pch, shares_t* state_masks, r
         uint16_t mask_f = getMask(pf, 31 - i, state_masks);
         uint16_t mask_g = getMask(pg, 31 - i, state_masks);
 
-        // if ( tapes->pos > 20991 && tapes->pos < 20992 + 32*4) {
-            // printf("[AUX_CH](%d)", tapes->pos);
-        // }
-        
 
         uint16_t mask_t0 = mask_f ^ mask_g;
         uint16_t mask_et0 = aux_mpc_AND2(mask_e, mask_t0, tapes, params);
-
-        // if ( tapes->pos > 20991 && tapes->pos < 20992 + 32*4) {
-        //     printf("          mask_e = %d  mask_f = %d  mask_g = %d  mask_t0 = %d  mask_et0 = %d\n", mask_e, mask_f, mask_g, mask_t0, mask_et0);
-        // }
 
         uint16_t mask_ch = mask_et0 ^ mask_g;
         setMask(pch, 31 - i, mask_ch, state_masks);
@@ -416,10 +410,6 @@ static void aux_MAJ_mpc(int pa, int pb, int pc, int pmaj, shares_t* state_masks,
         uint16_t mask_t1 = mask_a ^ mask_c;
         uint16_t mask_t0t1 = aux_mpc_AND2(mask_t0, mask_t1, tapes, params);
 
-        // if (tapes->pos > 19519 && tapes->pos < 19520 + 32*4) {
-        //     printf("[AUX_MAJ](%d)   mask_a = %d   mask_b = %d   mask_c = %d   mask_gamma_t0t1 = %d\n", tapes->pos, mask_a, mask_b, mask_c, mask_t0t1);
-        // }
-
         uint16_t mask_maj = mask_t0t1 ^ mask_a;
         setMask(pmaj, 31 - i, mask_maj, state_masks);
     }
@@ -433,10 +423,6 @@ static void aux_ADD32_mpc(int pa, int pb, int ps, shares_t* state_masks, randomT
         uint16_t mask_a = getMask(pa, 31-i, state_masks);
         uint16_t mask_b = getMask(pb, 31-i, state_masks);
 
-        // if (tapes->pos > 511 && tapes->pos < 512 + 32*4) {
-        //     printf("[AUX](%d) mask_a = %d   mask_b = %d \n", tapes->pos, mask_a, mask_b);
-        // }
-        
 
         uint16_t mask_sum = mask_cin ^ (mask_a ^ mask_b);
         setMask(ps, 31 - i, mask_sum, state_masks);
@@ -457,19 +443,11 @@ static void aux_ADD32_K_mpc(int pa, int ps, shares_t* state_masks, randomTape_t*
         uint16_t mask_a = getMask(pa, 31 - i, state_masks);
         uint16_t mask_k = 0;
 
-        // if (tapes->pos > 19135 && tapes->pos < 19136 + 32 * 4) {
-        //     printf("[AUX](%d) mask_a = %d  mask_b = %d", tapes->pos, mask_a, mask_k);
-        // }
-
         uint16_t mask_sum = mask_cin ^ (mask_a ^ mask_k);
         setMask(ps, 31 - i, mask_sum, state_masks);
 
         uint16_t mask_gamma_ak = aux_mpc_AND2(mask_a, mask_k, tapes, params);
         uint16_t mask_gamma_cin_axork = aux_mpc_AND2(mask_cin, mask_a ^ mask_k, tapes, params);
-
-        // if (tapes->pos > 84479 && tapes->pos < 84480 + 32*4 ) {
-        //     printf("(AUX)[%d]  mask_a = %d   mask_b = %d   mask_ab = %d   mask_cinaxorb = %d\n", tapes->pos, mask_a, mask_k, mask_gamma_ak, mask_gamma_cin_axork);
-        // }
 
         mask_cin = mask_gamma_ak ^ mask_gamma_cin_axork;
     }
@@ -481,17 +459,6 @@ static void replaceMasks(int p, int pWith, shares_t* state_masks)
         state_masks->shares[32 * p + i] = state_masks->shares[32 * pWith + i];
     }
 }
-
-// static void printMask(int p, shares_t* state_masks)
-// {
-//     printf("%d : ", p);
-//     for (int i = 0; i < 32; i++) {
-//         printf("%d ",state_masks->shares[32 * p + i]);
-//     }
-//     printf("\n");
-// }
-
-
 
 
 
@@ -682,7 +649,7 @@ static void commit_v(uint8_t* digest, uint8_t* input, msgs_t* msgs, paramset_SHA
     HashInit(&ctx, params, HASH_PREFIX_NONE);
     HashUpdate(&ctx, input, 16 * sizeof(uint32_t));
     for (size_t i = 0; i < params->numMPCParties; i++) {
-        size_t msgs_size = numBytes(msgs->pos);
+        size_t msgs_size = numBytes(msgs->pos) - 32; // -32 correspond au masque de l'output
         HashUpdate(&ctx, msgs->msgs[i], msgs_size);
     }
     HashFinal(&ctx);
@@ -694,7 +661,7 @@ static void wordToMsgs(uint16_t w, msgs_t* msgs, paramset_SHA256_t* params)
     for (size_t i = 0; i < params->numMPCParties; i++) {
         uint8_t w_i = getBit((uint8_t*)&w, i);
         setBit(msgs->msgs[i], msgs->pos, w_i);
-    }
+    } 
     msgs->pos++;
 }
 
@@ -744,6 +711,13 @@ static void setAuxBits(randomTape_t* tapes, uint8_t* input, paramset_SHA256_t* p
         setBit(tapes->tape[last], j, getBit(input, pos++));
     }
 }
+
+// static void printEndOfMsgs(uint8_t* msgs) {
+//     for (size_t i = 0; i < 32*2; i++) {
+//         uint8_t bit = getBit(msgs, 42496 - 32 * 2 +i);
+//         printf("%d", bit);
+//     } printf("\n");
+// }
 
 
 // picnic3-eprint.pdf page20    
@@ -891,7 +865,7 @@ static void mpc_MAJ(uint32_t a, uint32_t b, uint32_t c, uint32_t* maj, int pa, i
 
 uint32_t reconstructWordMask(int p, shares_t* state_masks)
 {
-    uint32_t mask;
+    uint32_t mask = 0;
     uint16_t shares[32];
     for (int i = 0; i < 32; i++) {
         shares[i] = state_masks->shares[32*p + i];
@@ -920,6 +894,15 @@ static void broadcastOutputShares(shares_t* shares, msgs_t* msgs, paramset_SHA25
         }
     }
 }
+
+// static void printFirstMsg(msgs_t* msgs, int num)
+// {
+//     int pos = 42496 - 1 * 32;
+//     for (int i = 0; i < 32; i ++) {
+//         uint8_t bit = getBit(msgs->msgs[num], pos + i);
+//         printf("%d", bit);
+//     }   printf("\n");
+// }
 
 
 
@@ -1082,9 +1065,10 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
         loadOutputShare(state_masks, 73, msgs);
         loadOutputShare(state_masks, 74, msgs);
         loadOutputShare(state_masks, 75, msgs);
+    } else {
+        broadcastOutputShares(state_masks, msgs, params);
     }
     
-    broadcastOutputShares(state_masks, msgs, params);
 
     /* Démasquage */
     uint32_t* amask = malloc(sizeof(uint32_t));
@@ -1125,8 +1109,8 @@ static int simulateOnlineSHA256(uint32_t* maskedKey, randomTape_t* tapes, shares
 		finalHash[i * 4 + 3] = out_hA[i];
 	}
 
-    printHex("Hash calculé", (uint8_t*)finalHash, 32);
-    printf("\n\n\n");
+    // printHex("Hash calculé", (uint8_t*)finalHash, 32);
+    // printf("\n\n\n");
 
     if (memcmp(finalHash, publicHash, params->stateSizeBytes) != 0) {
         ret = -1;
@@ -1237,7 +1221,6 @@ static void HCP(uint8_t* challengeHash, uint16_t* challengeC, uint16_t* challeng
 
     assert(params->numOpenedRounds < params->numMPCRounds);
 
-
     HashInit(&ctx, params, HASH_PREFIX_NONE);
     for (size_t t = 0; t < params->numMPCRounds; t++) {
         HashUpdate(&ctx, Ch->hashes[t], params->digestSizeBytes);
@@ -1245,7 +1228,7 @@ static void HCP(uint8_t* challengeHash, uint16_t* challengeC, uint16_t* challeng
 
     HashUpdate(&ctx, hCv, params->digestSizeBytes);
     HashUpdate(&ctx, salt, params->saltSizeBytes);
-    HashUpdate(&ctx, (uint8_t*)publicHash, params->stateSizeBytes);
+    HashUpdate(&ctx, (uint8_t*)publicHash, 32);
     HashFinal(&ctx);
     HashSqueeze(&ctx, challengeHash, params->digestSizeBytes);
 
@@ -1395,20 +1378,23 @@ int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_SHA25
 
             memset(tapes[t].tape[unopened], 0, tapeLengthBytes);
 
+           
             memcpy(msgs[t].msgs[unopened], sig->proofs[t].msgs, params->andSizeBytes);
             msgs[t].unopened = unopened;
-
-            // printf("UNOPENED: %ld\n", unopened);
+            
 
             tapesToWords(input_masks, &tapes[t]);
-
+            
             int rv = simulateOnlineSHA256((uint32_t*)sig->proofs[t].input, &tapes[t], input_masks, state_masks, &msgs[t], publicHash, params);
+
             if (rv != 0) {
                 freeShares(input_masks);
                 ret = -1;
                 goto Exit;
             }
+
             commit_v(Cv.hashes[t], sig->proofs[t].input, &msgs[t], params);
+
         }
         else {
             Cv.hashes[t] = NULL;
@@ -1418,7 +1404,11 @@ int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_SHA25
 
     size_t missingLeavesSize = params->numMPCRounds - params->numOpenedRounds;
     uint16_t* missingLeaves = getMissingLeavesList(sig->challengeC, params);
+
+
+
     ret = addMerkleNodes(treeCv, missingLeaves, missingLeavesSize, sig->cvInfo, sig->cvInfoLen);
+
     free(missingLeaves);
     if (ret != 0) {
         ret = -1;
@@ -1426,10 +1416,13 @@ int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_SHA25
     }
 
     ret = verifyMerkleTree(treeCv, Cv.hashes, sig->salt, params);
+
     if (ret != 0) {
         ret = -1;
         goto Exit;
     }
+    
+    
 
     /* Compute the challenge hash */
     HCP(challengeHash, NULL, NULL, &Ch, treeCv->nodes[0], sig->salt, publicHash, params);
@@ -1465,9 +1458,16 @@ static void computeSaltAndRootSeed(uint8_t* saltAndRoot, size_t saltAndRootLengt
     HashInstance ctx;
     
     HashInit(&ctx, params, HASH_PREFIX_NONE);
-    HashUpdate(&ctx, (uint8_t*)witness, params->inputSizeBits);  // /8 ?
-    HashUpdate(&ctx, (uint8_t*)publicHash, 256);  //  /8 ?
-    HashUpdateIntLE(&ctx, params->stateSizeBits);   // ?
+    HashUpdate(&ctx, (uint8_t*)witness, params->inputSizeBits / 8);
+    HashUpdate(&ctx, (uint8_t*)publicHash, 256 / 8);
+    HashUpdateIntLE(&ctx, params->stateSizeBits);   
+
+    uint16_t rd = 0;
+    if (getrandom(&rd, 2, 0) == -1) {
+        exit(EXIT_FAILURE);
+    } HashUpdateIntLE(&ctx, rd);
+
+
     HashFinal(&ctx);
     HashSqueeze(&ctx, saltAndRoot, saltAndRootLength);
 }
@@ -1575,19 +1575,23 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
     allocateCommitments2(&Cv, params, params->numMPCRounds);
     for (size_t t = 0; t < params->numMPCRounds; t++) {
         commit_h(Ch.hashes[t], &C[t], params);
-    
+
         commit_v(Cv.hashes[t], inputs[t], &msgs[t], params);
+
     }
 
     /* Create a Merkle tree with Cv as the leaves */
     // [  5  ]
     treeCv = createTree(params->numMPCRounds, params->digestSizeBytes);
+
     buildMerkleTree(treeCv, Cv.hashes, sig->salt, params);
 
     /* Compute the challenge; two lists of integers */
     // [  6  ]
     uint16_t* challengeC = sig->challengeC;
     uint16_t* challengeP = sig->challengeP;
+
+
     HCP(sig->challengeHash, challengeC, challengeP, &Ch, treeCv->nodes[0], sig->salt, publicHash, params);
 
     /* Send information required for checking commitments with Merkle tree.

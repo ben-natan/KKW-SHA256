@@ -10,12 +10,6 @@
 
 #define CH(e,f,g) ((e & f) ^ ((~e) & g))
 
-static void printMaskedKey(uint32_t* maskedKey) {
-    for (int i = 0; i < 16; i++) {
-        printf("%d", maskedKey[i]);
-        fflush(stdout);
-    }
-}
 
 int sha256(unsigned char* result, int numBits) {
     uint32_t _hA[8] = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
@@ -36,10 +30,6 @@ int sha256(unsigned char* result, int numBits) {
 	//chunk[61] = numBits >> 16;
 	chunk[62] = numBits >> 8;
 	chunk[63] = numBits;
-
-	printf("[SHA256] : \n");
-	printMaskedKey((uint32_t*)chunk);
-	printf("\n");
 
 	uint32_t w[64];
 	int i;
@@ -80,8 +70,6 @@ int sha256(unsigned char* result, int numBits) {
 	f = _hA[5];
 	g = _hA[6];
 	h = _hA[7];
-
-	printf("[SHA256] a = %d  b = %d  c = %d  d = %d  e = %d  f = %d  g = %d  h = %d\n", a, b, c, d, e, f, g, h);
 
 	for (i = 0; i < 64; i++) {
 		s1 = RIGHTROTATE(e,6) ^ RIGHTROTATE(e, 11) ^ RIGHTROTATE(e, 25);
@@ -131,10 +119,6 @@ int sha256(unsigned char* result, int numBits) {
 	_hA[5] += f;
 	_hA[6] += g;
 	_hA[7] += h;
-
-	for (i = 0; i<8; i++) {
-		printf("%d:  %d\n", i, _hA[i]);
-	}
 
 	for (i = 0; i < 8; i++) {
 		result[i * 4] = (_hA[i] >> 24);
