@@ -17,6 +17,7 @@
 #include <string.h>
 #include <assert.h>
 #include <sys/random.h>
+#include <time.h>
 
 #include "picnic3_impl.h"
 #include "picnic_types.h"
@@ -1246,6 +1247,7 @@ int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_SHA25
     randomTape_t* tapes = malloc(params->numMPCRounds * sizeof(randomTape_t));
     tree_t* iSeedsTree = createTree(params->numMPCRounds, params->seedSizeBytes);
 
+    clock_t br = clock();
 
     //  [  2  ]
     int ret = reconstructSeeds(iSeedsTree, sig->challengeC, params->numOpenedRounds, sig->iSeedInfo, sig->iSeedInfoLen, sig->salt, 0, params);
@@ -1278,9 +1280,15 @@ int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_SHA25
         }
     }
 
+    clock_t er = clock();
+    double rt = (double)(er - br) / CLOCKS_PER_SEC;
+    printf("RecTree[VER]: %fs\n", rt);
+
     /* Commit */
     size_t last = params->numMPCParties - 1;
     uint8_t auxBits[MAX_AUX_BYTES] = {0,};
+
+    double at = 0;
     for (size_t t = 0; t < params->numMPCRounds; t++) {
         /* Compute random tapes for all parties.  One party for each repitition
          * challengeC will have a bogus seed; but we won't use that party's
@@ -1290,7 +1298,11 @@ int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_SHA25
 
         if (!contains(sig->challengeC, params->numOpenedRounds, t)) {
             /* We're given iSeed, have expanded the seeds, compute aux from scratch so we can comnpte Com[t] */
+            clock_t ba = clock();
             computeAuxTapeSHA256(&tapes[t], params);
+            clock_t ea = clock();
+            at += (double)(ea - ba) / CLOCKS_PER_SEC;
+
             for (size_t j = 0; j < last; j++) {
                 commit(C[t].hashes[j], getLeaf(seeds[t], j), NULL, sig->salt, t, j, params);
             }
@@ -1312,10 +1324,9 @@ int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_SHA25
 
             memcpy(C[t].hashes[unopened], sig->proofs[t].C, params->digestSizeBytes);
         }
-
-       
-
     }
+
+    printf("Aux[VER]: %fs\n", at);
 
     /* Commit to the commitments */
     allocateCommitments2(&Ch, params, params->numMPCRounds);
@@ -1329,6 +1340,9 @@ int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_SHA25
     allocateCommitments2(&Cv, params, params->numMPCRounds);
     shares_t* state_masks = allocateShares(params->stateSizeBits + 16);
     shares_t* input_masks = allocateShares(params->inputSizeBits);
+
+    double st = 0;
+    
     for (size_t t = 0; t < params->numMPCRounds; t++) {
         
 
@@ -1352,7 +1366,11 @@ int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_SHA25
 
             tapesToWords(input_masks, &tapes[t]);
             
+            clock_t bs = clock();
             int rv = simulateOnlineSHA256((uint32_t*)sig->proofs[t].input, &tapes[t], input_masks, state_masks, &msgs[t], publicHash, params);
+            clock_t es = clock();
+            st += (double)(es - bs) / CLOCKS_PER_SEC;
+            
 
             if (rv != 0) {
                 freeShares(input_masks);
@@ -1367,6 +1385,10 @@ int verify_picnic3(signature2_t* sig, const uint32_t* publicHash, paramset_SHA25
             Cv.hashes[t] = NULL;
         }
     }
+
+    printf("Sim[VER]: %fs \n", st);
+
+
     freeShares(state_masks);
 
     size_t missingLeavesSize = params->numMPCRounds - params->numOpenedRounds;
@@ -1449,6 +1471,8 @@ static void reconstructInputMasks(uint32_t* out, shares_t* input_masks)
 // spec-v3.0.pdf Section 7.1
 int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, paramset_SHA256_t* params)
 {
+    clock_t bg = clock();
+    
     int ret = 0;
     // [  1  ]
     tree_t* treeCv = NULL;
@@ -1482,14 +1506,23 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
         createRandomTapes(&tapes[t], getLeaves(seeds[t]), sig->salt, t, params);  
     }
 
+    clock_t eg = clock();
+    double gt = (double)(eg - bg) / CLOCKS_PER_SEC;
+    printf("Gener[SIGN]: %fs\n", gt);
+
 
     /* Preprocessing; compute aux tape for the N-th player, for each parallel rep */
     uint8_t auxBits[MAX_AUX_BYTES] = {0,};
 
     // [  4.c  ]
+    double at = 0;
     for (size_t t = 0; t < params->numMPCRounds; t++) {
+        clock_t ba = clock();
         computeAuxTapeSHA256(&tapes[t], params);
+        clock_t ea = clock();
+        at += (double)(ea - ba) / CLOCKS_PER_SEC;
     }
+    printf("Aux[SIGN]: %fs \n", at);
 
     /* Commit to seeds and aux bits */ 
     // [  4.d  ]
@@ -1509,6 +1542,9 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
     shares_t* state_masks = allocateShares(params->stateSizeBits + 16);
     shares_t* input_masks = allocateShares(params->inputSizeBits);
     inputs_t inputs = allocateInputs2(params);
+
+    double st = 0;
+
     for (size_t t = 0; t < params->numMPCRounds; t++) {
 
         uint32_t* maskedKey = malloc (16 * sizeof(uint32_t));
@@ -1525,18 +1561,24 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
         memcpy(inputs[t], maskedKey, 16*sizeof(uint32_t));
 
         // [  4.f  ]
+        clock_t bs = clock();
         int rv = simulateOnlineSHA256(maskedKey, &tapes[t], input_masks, state_masks, &msgs[t], publicHash, params);
+        clock_t es = clock();
+        st += (double)(es - bs)/CLOCKS_PER_SEC;
+
         if (rv != 0) {
             freeShares(state_masks);
             ret = -1;
             goto Exit;
         }
     }
+    printf("Sim[SIGN]: %fs\n", st);
     freeShares(state_masks);
 
 
     /* Commit to the commitments and views */
     // [  4.g  & 4.h  ]
+    clock_t bc = clock();
     allocateCommitments2(&Ch, params, params->numMPCRounds);
     allocateCommitments2(&Cv, params, params->numMPCRounds);
     for (size_t t = 0; t < params->numMPCRounds; t++) {
@@ -1604,6 +1646,10 @@ int sign_picnic3(uint32_t* witness, uint32_t* publicHash, signature2_t* sig, par
     }
 
     sig->proofs = proofs;
+    clock_t ec = clock();
+
+    double ct = (double)(ec - bc) / CLOCKS_PER_SEC;
+    printf("Constr[SIGN]: %fs\n", ct);
 
 Exit: 
 

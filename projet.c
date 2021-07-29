@@ -4,6 +4,7 @@
 #include <assert.h>
 #include "sha256.h"
 #include "picnic3_impl.h"
+#include <time.h>
 
 #define WORD_SIZE_BITS 32
 
@@ -48,30 +49,34 @@ int projet_sign_and_verify(uint32_t* witness)
     sig->challengeHash = (uint8_t*)malloc(params->digestSizeBytes);
     sig->proofs = calloc(params->numMPCRounds, sizeof(proof2_t));
 
-    printf("Signing... "); fflush(stdout);
-    int ret = sign_picnic3(witness, (uint32_t*)publicHash, sig, params);
-    if (ret == 0) {
-        printf("success! \n");
-    } else {
-        printf("failed. \n");
-        goto Exit;
-    } printf("\n");
 
 
-    printf("Verifying... "); fflush(stdout);
-    ret = verify_picnic3(sig, (uint32_t*)publicHash, params);
-    if (ret == 0) {
-        printf("success! \n");
-    } else {
-        printf("failed. \n");
-        goto Exit;
-    } printf("\n");
 
-    uint8_t* sigBytes = malloc(500000); //500 Ko
-    int size = serializeSignature2(sig, sigBytes, 500000, params);
-    printf("Signature size: %dKB\n", size / 1000);
+    double total_sign = 0;
+    double total_ver = 0;
+    
+    int i, ret;
+    for (i = 0; i < 10; i++) {
+        clock_t begin_sign = clock();
+        ret = sign_picnic3(witness, (uint32_t*)publicHash, sig, params);
+        clock_t end_sign = clock();
 
+        total_sign += (double)(end_sign - begin_sign) / CLOCKS_PER_SEC; 
 
-Exit:
-    return ret;    
+        clock_t begin_ver = clock();
+        ret = verify_picnic3(sig, (uint32_t*)publicHash, params);
+        clock_t end_ver = clock();
+
+        total_ver += (double)(end_ver - begin_ver) / CLOCKS_PER_SEC;
+
+        uint8_t* sigBytes = malloc(500000);
+        int size = serializeSignature2(sig, sigBytes, 500000, params);
+        printf("Éxécution %d  -- %dKB\n", i, size/1000);
+    }
+
+    printf("Total sign: %f \n", total_sign);
+    printf("Total ver: %f \n", total_ver);
+    printf("Temps total: %f \n", total_sign + total_ver);
+
+    return ret;
 }
